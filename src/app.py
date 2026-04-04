@@ -167,6 +167,13 @@ class Api:
         if 0 <= timer_id < len(self._config.presets):
             self._config.update_preset(timer_id, updates)
             preset = self._config.presets[timer_id]
+            timer = self._timers[timer_id]
+
+            # Update live timer trigger config
+            if "trigger_seconds" in updates:
+                timer._trigger_seconds = updates["trigger_seconds"]
+            if "trigger_action" in updates:
+                timer._trigger_action = updates["trigger_action"]
 
             # Re-register file writer if output path changed
             if "output_file" in updates:
@@ -186,7 +193,12 @@ class Api:
         with open(log_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
         if severity != "ALL":
-            lines = [l for l in lines if f"| {severity} |" in l or "| ERROR |" in l]
+            severity_levels = {"DEBUG": 10, "INFO": 20, "WARNING": 30, "ERROR": 40}
+            min_level = severity_levels.get(severity, 0)
+            lines = [
+                l for l in lines
+                if any(f"| {lvl} |" in l for lvl, v in severity_levels.items() if v >= min_level)
+            ]
         return lines[-count:]
 
 

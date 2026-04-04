@@ -53,6 +53,7 @@ class FileWriter:
             return
 
         dir_path = os.path.dirname(path)
+        tmp_path = None
         try:
             fd, tmp_path = tempfile.mkstemp(dir=dir_path, prefix=".klute_")
             try:
@@ -68,5 +69,5 @@ class FileWriter:
                     "state": f"content_length={len(content)}",
                 },
             )
-            if os.path.exists(tmp_path):
+            if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
