@@ -6,6 +6,9 @@ import webview
 import threading
 from typing import Optional
 
+import pystray
+from PIL import Image, ImageDraw
+
 from src.config import Config
 from src.timer import Timer
 from src.file_writer import FileWriter
@@ -198,6 +201,14 @@ def start_backend(window: webview.Window, api: Api) -> None:
     )
 
 
+def create_tray_icon() -> Image.Image:
+    img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    draw.ellipse([8, 8, 56, 56], fill=(45, 212, 191))
+    draw.text((22, 18), "K", fill=(13, 17, 23))
+    return img
+
+
 def main() -> None:
     setup_logger(log_dir=os.path.join(BASE_DIR, "logs"))
 
@@ -214,19 +225,54 @@ def main() -> None:
         min_size=(600, 400),
     )
 
-    def on_closing():
+    tray_icon = None
+
+    def show_window():
+        window.show()
+        window.restore()
+
+    def quit_app(icon, item):
+        icon.stop()
         for timer in api._timers:
             timer.stop()
         for i in range(len(api._timers)):
             api._file_writer.clear(i)
         if api._ws_client:
             api._ws_client.stop()
+        window.destroy()
+
+    def on_closing():
+        if api._config.minimize_to_tray:
+            window.hide()
+            return False  # Prevent actual close
+        # Clean shutdown
+        for timer in api._timers:
+            timer.stop()
+        for i in range(len(api._timers)):
+            api._file_writer.clear(i)
+        if api._ws_client:
+            api._ws_client.stop()
+        if tray_icon:
+            tray_icon.stop()
         log.info(
             "app closing",
             extra={"context": "shutdown", "state": "closing"},
         )
 
     window.events.closing += on_closing
+
+    tray_icon = pystray.Icon(
+        "klute-timer",
+        create_tray_icon(),
+        "Klute Timer",
+        menu=pystray.Menu(
+            pystray.MenuItem("Show", lambda icon, item: show_window(), default=True),
+            pystray.MenuItem("Quit", quit_app),
+        ),
+    )
+
+    tray_thread = threading.Thread(target=tray_icon.run, daemon=True)
+    tray_thread.start()
 
     webview.start(start_backend, (window, api), debug=False)
 
