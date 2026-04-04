@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Klute Timer</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="app">
+        <header class="status-bar">
+            <div class="app-title">Klute Timer</div>
+            <div class="ws-status" id="ws-status">
+                <span class="ws-indicator" id="ws-indicator"></span>
+                <span class="ws-label" id="ws-label">Disconnected</span>
+            </div>
+        </header>
+
+        <main class="timer-panel" id="timer-panel">
+            <!-- Timer cards rendered by JS -->
+        </main>
+
+        <footer class="footer-bar">
+            <button class="btn-icon" id="btn-logs" title="View Logs">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M2 2h12v2H2V2zm0 4h12v2H2V6zm0 4h8v2H2v-2z"/>
+                </svg>
+                Logs
+            </button>
+        </footer>
+    </div>
+
+    <!-- Log Viewer Modal -->
+    <div class="modal-overlay" id="log-modal" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Log Viewer</h2>
+                <div class="log-controls">
+                    <select id="log-severity">
+                        <option value="ALL">All</option>
+                        <option value="ERROR">Errors</option>
+                        <option value="WARNING">Warnings</option>
+                        <option value="INFO" selected>Info+</option>
+                    </select>
+                    <button class="btn-secondary" id="btn-refresh-logs">Refresh</button>
+                </div>
+                <button class="btn-close" id="btn-close-logs">&times;</button>
+            </div>
+            <div class="log-content" id="log-content">
+                <pre></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preset Editor Modal -->
+    <div class="modal-overlay" id="edit-modal" style="display:none;">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h2>Edit Preset</h2>
+                <button class="btn-close" id="btn-close-edit">&times;</button>
+            </div>
+            <form id="edit-form">
+                <input type="hidden" id="edit-timer-id">
+                <div class="form-group">
+                    <label for="edit-name">Name</label>
+                    <input type="text" id="edit-name" maxlength="20">
+                </div>
+                <div class="form-group">
+                    <label for="edit-duration">Duration (seconds)</label>
+                    <input type="number" id="edit-duration" min="1" max="86400">
+                </div>
+                <div class="form-group">
+                    <label for="edit-end-message">End Message</label>
+                    <input type="text" id="edit-end-message" maxlength="50" placeholder="Blank when done">
+                </div>
+                <div class="form-group">
+                    <label for="edit-trigger-seconds">Trigger at (seconds remaining)</label>
+                    <input type="number" id="edit-trigger-seconds" min="0" placeholder="None">
+                </div>
+                <div class="form-group">
+                    <label for="edit-trigger-action">Streamer.bot Action Name</label>
+                    <input type="text" id="edit-trigger-action" placeholder="None">
+                </div>
+                <div class="form-group">
+                    <label for="edit-output-file">Output File</label>
+                    <input type="text" id="edit-output-file">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Save</button>
+                    <button type="button" class="btn-secondary" id="btn-cancel-edit">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
