@@ -1,0 +1,154 @@
+import time
+import threading
+from src.timer import Timer
+
+
+class TestTimerState:
+    def test_initial_state_is_idle(self):
+        t = Timer(timer_id=0, duration=120)
+        assert t.state == "idle"
+        assert t.remaining == 120
+
+    def test_start_sets_running(self):
+        t = Timer(timer_id=0, duration=120)
+        t.start()
+        assert t.state == "running"
+        t.stop()
+
+    def test_pause_from_running(self):
+        t = Timer(timer_id=0, duration=120)
+        t.start()
+        t.pause()
+        assert t.state == "paused"
+        t.stop()
+
+    def test_resume_from_paused(self):
+        t = Timer(timer_id=0, duration=120)
+        t.start()
+        t.pause()
+        t.resume()
+        assert t.state == "running"
+        t.stop()
+
+    def test_stop_resets_to_idle(self):
+        t = Timer(timer_id=0, duration=120)
+        t.start()
+        t.stop()
+        assert t.state == "idle"
+        assert t.remaining == 120
+
+    def test_reset_restarts(self):
+        t = Timer(timer_id=0, duration=120)
+        t.start()
+        time.sleep(1.5)
+        t.reset()
+        assert t.state == "running"
+        assert t.remaining == 120
+        t.stop()
+
+    def test_pause_toggle(self):
+        t = Timer(timer_id=0, duration=120)
+        t.start()
+        t.toggle_pause()
+        assert t.state == "paused"
+        t.toggle_pause()
+        assert t.state == "running"
+        t.stop()
+
+
+class TestTimerCountdown:
+    def test_countdown_decrements(self):
+        ticks = []
+        t = Timer(timer_id=0, duration=3, on_tick=lambda tid, rem: ticks.append(rem))
+        t.start()
+        time.sleep(2.5)
+        t.stop()
+        assert len(ticks) >= 2
+        assert ticks[0] == 2
+        assert ticks[1] == 1
+
+    def test_countdown_reaches_zero(self):
+        finished = threading.Event()
+        t = Timer(
+            timer_id=0,
+            duration=2,
+            on_finish=lambda tid: finished.set(),
+        )
+        t.start()
+        finished.wait(timeout=5)
+        assert t.state == "finished"
+        assert t.remaining == 0
+
+    def test_pause_stops_counting(self):
+        ticks = []
+        t = Timer(timer_id=0, duration=10, on_tick=lambda tid, rem: ticks.append(rem))
+        t.start()
+        time.sleep(1.5)
+        t.pause()
+        count_at_pause = len(ticks)
+        time.sleep(2)
+        assert len(ticks) == count_at_pause
+        t.stop()
+
+
+class TestTimerTriggerPoint:
+    def test_trigger_fires_at_threshold(self):
+        triggered = threading.Event()
+
+        def on_trigger(tid, action):
+            triggered.set()
+
+        t = Timer(
+            timer_id=0,
+            duration=3,
+            trigger_seconds=1,
+            trigger_action="TestAction",
+            on_trigger=on_trigger,
+        )
+        t.start()
+        triggered.wait(timeout=5)
+        assert triggered.is_set()
+        t.stop()
+
+    def test_trigger_does_not_fire_without_config(self):
+        triggered = threading.Event()
+        t = Timer(
+            timer_id=0,
+            duration=2,
+            on_trigger=lambda tid, action: triggered.set(),
+        )
+        t.start()
+        time.sleep(3)
+        assert not triggered.is_set()
+
+
+class TestTimerFormat:
+    def test_format_under_one_hour(self):
+        t = Timer(timer_id=0, duration=125)
+        assert t.format_remaining() == "02:05"
+
+    def test_format_one_hour_plus(self):
+        t = Timer(timer_id=0, duration=3661)
+        assert t.format_remaining() == "01:01:01"
+
+    def test_format_at_zero(self):
+        t = Timer(timer_id=0, duration=60)
+        t._remaining = 0
+        assert t.format_remaining() == "00:00"
+
+    def test_format_stays_hms_when_crossing_hour(self):
+        t = Timer(timer_id=0, duration=3600)
+        t._remaining = 59
+        assert t.format_remaining() == "00:00:59"
+
+    def test_format_exact_hour(self):
+        t = Timer(timer_id=0, duration=3600)
+        assert t.format_remaining() == "01:00:00"
+
+
+class TestTimerOverrideDuration:
+    def test_start_with_override_duration(self):
+        t = Timer(timer_id=0, duration=120)
+        t.start(override_duration=60)
+        assert t.remaining == 60
+        t.stop()
