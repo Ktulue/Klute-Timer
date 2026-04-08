@@ -418,3 +418,24 @@ select {
     color: var(--text-secondary);
     font-style: italic;
 }
+
+/* Input with adjacent button (e.g. file picker) */
+.input-with-button {
+    display: flex;
+    gap: 8px;
+}
+
+.input-with-button input {
+    flex: 1;
+    min-width: 0;
+}
+
+.input-with-button button {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.input-with-button input[readonly] {
+    cursor: default;
+    background: rgba(255, 255, 255, 0.06);
+}

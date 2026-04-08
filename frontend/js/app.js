@@ -135,6 +135,25 @@ function setupEventListeners() {
         if (e.target === e.currentTarget) closeEditModal();
     });
 
+    // Browse button for output file
+    document.getElementById('btn-browse-output').addEventListener('click', async () => {
+        const timerId = parseInt(document.getElementById('edit-timer-id').value);
+        const errorEl = document.getElementById('output-file-error');
+        errorEl.style.display = 'none';
+
+        const result = await pywebview.api.pick_output_file(timerId);
+        if (result) {
+            document.getElementById('edit-output-file').value = result;
+            // Update local presets cache so subsequent edits show the new path
+            presets[timerId].output_file = result;
+        } else {
+            // null = user cancelled OR validation failed.
+            // We can't distinguish — show a non-alarming message and point at logs.
+            errorEl.textContent = 'No file selected, or selection rejected. Check logs for details.';
+            errorEl.style.display = 'block';
+        }
+    });
+
     // Keyboard: Escape closes modals
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {

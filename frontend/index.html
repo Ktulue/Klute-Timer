@@ -84,7 +84,11 @@
                 </div>
                 <div class="form-group">
                     <label for="edit-output-file">Output File</label>
-                    <input type="text" id="edit-output-file">
+                    <div class="input-with-button">
+                        <input type="text" id="edit-output-file" readonly>
+                        <button type="button" class="btn-secondary" id="btn-browse-output">Browse...</button>
+                    </div>
+                    <small class="form-helper" id="output-file-error" style="display:none; color:#ff6b6b;"></small>
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn-primary">Save</button>
