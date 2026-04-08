@@ -244,6 +244,11 @@ class Api:
 
         # create_file_dialog returns a tuple/list — take the first entry
         chosen_path = result[0] if isinstance(result, (list, tuple)) else result
+        if not chosen_path:
+            # Defensive: treat empty path as cancel even though no shipping
+            # pywebview backend produces this. Avoids a silent fallback to
+            # os.getcwd() in os.path.abspath('').
+            return None
         normalized = os.path.normpath(os.path.abspath(chosen_path))
 
         # Validate: parent dir must exist and be writable
