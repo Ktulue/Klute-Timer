@@ -8,7 +8,7 @@ Stream timer app replacing the defunct Elk Timer. Python desktop GUI with Stream
 - Streamer.bot WebSocket integration for Stream Deck triggering
 - Text file output for OBS GDI+ text sources
 - Configurable trigger points (fire Streamer.bot actions at N seconds remaining)
-- Custom end messages per timer
+- Audible alert on timer expiry (chimes.wav default, per-preset override via `config.json`)
 - Dark aquatic theme matching the streaming ecosystem
 - In-app log viewer for debugging
 - Minimize to system tray
@@ -51,7 +51,7 @@ Add a GDI+ Text source in OBS pointing to the output file (e.g., `output/socials
 Edit `config.json` to customize:
 
 - WebSocket host/port/auth
-- Timer presets (name, duration, end message, trigger points)
+- Timer presets (name, duration, trigger points, `finished_sound` override)
 - Window behavior (minimize to tray)
 
 ## License

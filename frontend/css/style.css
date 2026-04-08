@@ -133,6 +133,12 @@ body {
                 linear-gradient(var(--red-dim), var(--red-dim));
 }
 
+.timer-card.state-finishing {
+    border-color: var(--teal);
+    background: linear-gradient(var(--bg-secondary), var(--bg-secondary)),
+                linear-gradient(var(--teal-dim), var(--teal-dim));
+}
+
 /* Card Header */
 .card-header {
     display: flex;
@@ -175,6 +181,11 @@ body {
 .timer-state.finished {
     color: var(--red);
     background: var(--red-dim);
+}
+
+.timer-state.finishing {
+    color: var(--teal);
+    background: var(--teal-dim);
 }
 
 /* Timer Display */
