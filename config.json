@@ -1,0 +1,49 @@
+{
+  "websocket": {
+    "host": "127.0.0.1",
+    "port": 8059,
+    "auth": null
+  },
+  "default_finished_sound": "C:\\Windows\\Media\\chimes.wav",
+  "presets": [
+    {
+      "name": "Socials",
+      "duration": 120,
+      "end_message": "",
+      "trigger_seconds": 30,
+      "trigger_action": "Push The Button Reminder",
+      "output_file": "output/socials.txt",
+      "finished_sound": null
+    },
+    {
+      "name": "Intro",
+      "duration": 300,
+      "end_message": "",
+      "trigger_seconds": null,
+      "trigger_action": null,
+      "output_file": "output/intro.txt",
+      "finished_sound": null
+    },
+    {
+      "name": "Break",
+      "duration": 600,
+      "end_message": "",
+      "trigger_seconds": null,
+      "trigger_action": null,
+      "output_file": "output/break.txt",
+      "finished_sound": null
+    },
+    {
+      "name": "Custom",
+      "duration": 0,
+      "end_message": "",
+      "trigger_seconds": null,
+      "trigger_action": null,
+      "output_file": "output/custom.txt",
+      "finished_sound": null
+    }
+  ],
+  "window": {
+    "minimize_to_tray": true
+  }
+}

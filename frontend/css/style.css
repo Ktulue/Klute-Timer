@@ -133,6 +133,12 @@ body {
                 linear-gradient(var(--red-dim), var(--red-dim));
 }
 
+.timer-card.state-finishing {
+    border-color: var(--teal);
+    background: linear-gradient(var(--bg-secondary), var(--bg-secondary)),
+                linear-gradient(var(--teal-dim), var(--teal-dim));
+}
+
 /* Card Header */
 .card-header {
     display: flex;
@@ -175,6 +181,11 @@ body {
 .timer-state.finished {
     color: var(--red);
     background: var(--red-dim);
+}
+
+.timer-state.finishing {
+    color: var(--teal);
+    background: var(--teal-dim);
 }
 
 /* Timer Display */
@@ -402,4 +413,40 @@ select {
 *:focus-visible {
     outline: 2px solid var(--teal);
     outline-offset: 1px;
+}
+
+/* Locked form fields (e.g. paused features) */
+.form-group-locked input[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.form-helper {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.8em;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+/* Input with adjacent button (e.g. file picker) */
+.input-with-button {
+    display: flex;
+    gap: 8px;
+}
+
+.input-with-button input {
+    flex: 1;
+    min-width: 0;
+}
+
+.input-with-button button {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.input-with-button input[readonly] {
+    cursor: default;
+    background: rgba(255, 255, 255, 0.06);
 }

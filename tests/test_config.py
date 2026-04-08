@@ -92,3 +92,72 @@ class TestPresetConfig:
         assert config.presets[0].duration == 90
         # unchanged fields stay the same
         assert config.presets[0].trigger_seconds == 30
+
+
+class TestConfigFinishedSound:
+    def test_preset_finished_sound_defaults_to_none(self, tmp_path):
+        config = Config(str(tmp_path / "config.json"))
+        for preset in config.presets:
+            assert preset.finished_sound is None
+
+    def test_default_finished_sound_defaults_to_none_when_missing(self, tmp_path):
+        config_path = tmp_path / "config.json"
+        data = {
+            "websocket": {"host": "127.0.0.1", "port": 8059, "auth": None},
+            "presets": [
+                {
+                    "name": "Test",
+                    "duration": 60,
+                    "end_message": "",
+                    "trigger_seconds": None,
+                    "trigger_action": None,
+                    "output_file": "output/test.txt",
+                }
+            ],
+            "window": {"minimize_to_tray": True},
+        }
+        config_path.write_text(json.dumps(data))
+        config = Config(str(config_path))
+        assert config.default_finished_sound is None
+
+    def test_default_finished_sound_loads_from_file(self, tmp_path):
+        config_path = tmp_path / "config.json"
+        data = {
+            "websocket": {"host": "127.0.0.1", "port": 8059, "auth": None},
+            "default_finished_sound": "C:\\Windows\\Media\\chimes.wav",
+            "presets": [],
+            "window": {"minimize_to_tray": True},
+        }
+        config_path.write_text(json.dumps(data))
+        config = Config(str(config_path))
+        assert config.default_finished_sound == "C:\\Windows\\Media\\chimes.wav"
+
+    def test_preset_finished_sound_loads_from_file(self, tmp_path):
+        config_path = tmp_path / "config.json"
+        data = {
+            "websocket": {"host": "127.0.0.1", "port": 8059, "auth": None},
+            "presets": [
+                {
+                    "name": "Test",
+                    "duration": 60,
+                    "end_message": "",
+                    "trigger_seconds": None,
+                    "trigger_action": None,
+                    "output_file": "output/test.txt",
+                    "finished_sound": "sounds/custom.wav",
+                }
+            ],
+            "window": {"minimize_to_tray": True},
+        }
+        config_path.write_text(json.dumps(data))
+        config = Config(str(config_path))
+        assert config.presets[0].finished_sound == "sounds/custom.wav"
+
+    def test_default_finished_sound_persists_via_save(self, tmp_path):
+        config_path = str(tmp_path / "config.json")
+        config = Config(config_path)
+        config.default_finished_sound = "sounds/global.wav"
+        config.save()
+
+        config2 = Config(config_path)
+        assert config2.default_finished_sound == "sounds/global.wav"

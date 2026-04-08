@@ -8,7 +8,7 @@ Stream timer app replacing the defunct Elk Timer. Python desktop GUI with Stream
 - Streamer.bot WebSocket integration for Stream Deck triggering
 - Text file output for OBS GDI+ text sources
 - Configurable trigger points (fire Streamer.bot actions at N seconds remaining)
-- Custom end messages per timer
+- Audible alert on timer expiry (chimes.wav default, per-preset override via `config.json`)
 - Dark aquatic theme matching the streaming ecosystem
 - In-app log viewer for debugging
 - Minimize to system tray
@@ -51,12 +51,43 @@ Add a GDI+ Text source in OBS pointing to the output file (e.g., `output/socials
 Edit `config.json` to customize:
 
 - WebSocket host/port/auth
-- Timer presets (name, duration, end message, trigger points)
+- Timer presets (name, duration, trigger points, `finished_sound` override)
 - Window behavior (minimize to tray)
 
 ## License
 
 MIT
+
+## Operational Notes
+
+### Don't open output files in Windows Notepad while the app is running
+
+Klute-Timer writes to its output `.txt` files via atomic rename. Notepad opens files without `FILE_SHARE_DELETE`, which silently blocks the atomic rename — the writer logs the failure and the OBS source freezes on its last good value with no obvious cause.
+
+Use one of these instead:
+- **VS Code** — opens with shared read access, refreshes on file change
+- **Notepad++** — same
+- **PowerShell** — `Get-Content -Wait .\output\socials.txt` for a live tail
+
+OBS GDI+ Text "from file" sources are fine — they poll without locking.
+
+### OBS GDI+ Text source — recommended setting
+
+For the OBS Text (GDI+) source pointing at a Klute-Timer output file: right-click the source → **Properties** → check **"Custom text extents"** → set fixed Width and Height. This prevents the source's bounding box from resizing if the file content length ever changes, which keeps your scene layout stable.
+
+### Adjusting alert sound volume
+
+Klute-Timer plays sounds via the Windows audio stack and does not have an in-app volume control. To make alerts louder or quieter:
+
+1. Right-click the speaker icon in your system tray → **Open Volume Mixer**
+2. Find the **Python** entry (it appears after Klute-Timer plays its first sound)
+3. Adjust the slider — the setting usually persists across reboots, but note this controls all Python processes on your machine (any other Python script using audio will share the same slider)
+
+For per-preset volume control or to amplify a quiet source sound, edit the WAV in Audacity (Effect → Volume and Compression → Normalize, or → Amplify) and save it to `sounds/`, then set `finished_sound` in `config.json` to point at the amplified copy.
+
+### Future packaging
+
+The project currently launches via `python -m src.app` or `launch.bat` (a stopgap script in the project root). A real `KluteTimer.exe` build via PyInstaller is tracked as a follow-up.
 
 ---
 

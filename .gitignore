@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Logs and runtime output
+logs/
+output/
+
+# User-supplied audio (the directory itself is committed via .gitkeep)
+sounds/*.wav
+sounds/*.WAV
+!sounds/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store

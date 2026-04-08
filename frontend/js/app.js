@@ -33,7 +33,8 @@ function renderTimerCards() {
             <div class="timer-display" id="timer-display-${i}">${timer.formatted}</div>
             <div class="card-controls">
                 <button class="btn btn-start" data-timer="${i}" data-action="start"
-                    ${timer.state === 'running' ? 'disabled' : ''}>Start</button>
+                    ${timer.state === 'running' || (presets[i] && presets[i].duration <= 0) ? 'disabled' : ''}
+                    ${presets[i] && presets[i].duration <= 0 ? 'title="Set a duration > 0 to start"' : ''}>Start</button>
                 <button class="btn btn-pause" data-timer="${i}" data-action="pause"
                     ${timer.state !== 'running' && timer.state !== 'paused' ? 'disabled' : ''}>
                     ${timer.state === 'paused' ? 'Resume' : 'Pause'}</button>
@@ -70,7 +71,13 @@ function updateTimerCard(timer) {
     const pauseBtn = card.querySelector('[data-action="pause"]');
     const stopBtn = card.querySelector('[data-action="stop"]');
 
-    startBtn.disabled = timer.state === 'running';
+    const preset = presets[timer.id];
+    startBtn.disabled = timer.state === 'running' || (preset && preset.duration <= 0);
+    if (preset && preset.duration <= 0) {
+        startBtn.title = 'Set a duration > 0 to start';
+    } else {
+        startBtn.removeAttribute('title');
+    }
     pauseBtn.disabled = timer.state !== 'running' && timer.state !== 'paused';
     stopBtn.disabled = timer.state === 'idle';
     pauseBtn.textContent = timer.state === 'paused' ? 'Resume' : 'Pause';
@@ -128,6 +135,25 @@ function setupEventListeners() {
         if (e.target === e.currentTarget) closeEditModal();
     });
 
+    // Browse button for output file
+    document.getElementById('btn-browse-output').addEventListener('click', async () => {
+        const timerId = parseInt(document.getElementById('edit-timer-id').value);
+        const errorEl = document.getElementById('output-file-error');
+        errorEl.style.display = 'none';
+
+        const result = await pywebview.api.pick_output_file(timerId);
+        if (result) {
+            document.getElementById('edit-output-file').value = result;
+            // Update local presets cache so subsequent edits show the new path
+            presets[timerId].output_file = result;
+        } else {
+            // null = user cancelled OR validation failed.
+            // We can't distinguish — show a non-alarming message and point at logs.
+            errorEl.textContent = 'No file selected, or selection rejected. Check the Logs panel for details.';
+            errorEl.style.display = 'block';
+        }
+    });
+
     // Keyboard: Escape closes modals
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
@@ -165,6 +191,7 @@ function openEditModal(timerId) {
     document.getElementById('edit-trigger-seconds').value = preset.trigger_seconds || '';
     document.getElementById('edit-trigger-action').value = preset.trigger_action || '';
     document.getElementById('edit-output-file').value = preset.output_file;
+    document.getElementById('output-file-error').style.display = 'none';
     document.getElementById('edit-modal').style.display = 'flex';
 }
 
@@ -181,7 +208,6 @@ async function savePreset(e) {
     const updates = {
         name: document.getElementById('edit-name').value,
         duration: parseInt(document.getElementById('edit-duration').value),
-        end_message: document.getElementById('edit-end-message').value,
         trigger_seconds: triggerSeconds ? parseInt(triggerSeconds) : null,
         trigger_action: triggerAction || null,
         output_file: document.getElementById('edit-output-file').value,
@@ -189,6 +215,10 @@ async function savePreset(e) {
 
     await pywebview.api.update_preset(timerId, updates);
     presets[timerId] = { ...presets[timerId], ...updates };
+    // Re-render so the Start button reflects the new duration
+    const updatedState = await pywebview.api.get_state();
+    timers = updatedState.timers;
+    renderTimerCards();
     closeEditModal();
 }
 
