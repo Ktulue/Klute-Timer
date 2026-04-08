@@ -149,7 +149,7 @@ function setupEventListeners() {
         } else {
             // null = user cancelled OR validation failed.
             // We can't distinguish — show a non-alarming message and point at logs.
-            errorEl.textContent = 'No file selected, or selection rejected. Check logs for details.';
+            errorEl.textContent = 'No file selected, or selection rejected. Check the Logs panel for details.';
             errorEl.style.display = 'block';
         }
     });
@@ -191,6 +191,7 @@ function openEditModal(timerId) {
     document.getElementById('edit-trigger-seconds').value = preset.trigger_seconds || '';
     document.getElementById('edit-trigger-action').value = preset.trigger_action || '';
     document.getElementById('edit-output-file').value = preset.output_file;
+    document.getElementById('output-file-error').style.display = 'none';
     document.getElementById('edit-modal').style.display = 'flex';
 }
 
