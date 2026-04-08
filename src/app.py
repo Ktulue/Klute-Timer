@@ -73,7 +73,18 @@ class Api:
         self._push_timer_update(timer_id)
 
     def _on_finish(self, timer_id: int) -> None:
+        # Note on OBS file state: the OBS output file should contain "00:00" at
+        # this moment. We don't write it here — _on_tick wrote it on the final
+        # decrement (when remaining hit 0) just before the timer thread fired
+        # this callback. The file holds that value through the finishing-state
+        # hold until _on_blank clears it.
         preset = self._config.presets[timer_id]
+        # Fallback semantics: None on either field means "use the next level."
+        # Empty string ("") is also treated as falsy and falls through to the
+        # global default — this is the Python `or` operator's behavior and is
+        # intentional. If a future feature wants "explicitly no sound for this
+        # preset," it should be expressed via a sentinel value or a separate
+        # boolean field, not by writing "" to finished_sound.
         sound = preset.finished_sound or self._config.default_finished_sound
         self._sound_player.play(sound)
         self._push_timer_update(timer_id)
