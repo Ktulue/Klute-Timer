@@ -12,6 +12,7 @@ class PresetConfig:
     trigger_seconds: Optional[int] = None
     trigger_action: Optional[str] = None
     output_file: str = ""
+    finished_sound: Optional[str] = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -59,6 +60,7 @@ class Config:
         self.ws_host: str = "127.0.0.1"
         self.ws_port: int = 8059
         self.ws_auth: Optional[str] = None
+        self.default_finished_sound: Optional[str] = None
         self.presets: list[PresetConfig] = []
         self.minimize_to_tray: bool = True
 
@@ -72,6 +74,7 @@ class Config:
         self.ws_host = "127.0.0.1"
         self.ws_port = 8059
         self.ws_auth = None
+        self.default_finished_sound = None
         self.presets = [
             PresetConfig(**asdict(p)) for p in DEFAULT_PRESETS
         ]
@@ -85,6 +88,8 @@ class Config:
         self.ws_host = ws.get("host", "127.0.0.1")
         self.ws_port = ws.get("port", 8059)
         self.ws_auth = ws.get("auth", None)
+
+        self.default_finished_sound = data.get("default_finished_sound", None)
 
         self.presets = [
             PresetConfig(**p) for p in data.get("presets", [])
@@ -101,6 +106,7 @@ class Config:
                 "port": self.ws_port,
                 "auth": self.ws_auth,
             },
+            "default_finished_sound": self.default_finished_sound,
             "presets": [p.to_dict() for p in self.presets],
             "window": {
                 "minimize_to_tray": self.minimize_to_tray,
