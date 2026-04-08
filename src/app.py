@@ -184,7 +184,7 @@ class Api:
 
     def update_preset(self, timer_id: int, updates: dict) -> None:
         if 0 <= timer_id < len(self._config.presets):
-            # end_message feature is paused — silently drop any attempted updates
+            # end_message feature is paused — drop any attempted updates (WARNING is logged)
             if "end_message" in updates:
                 log.warning(
                     "end_message updates are paused; ignoring",
