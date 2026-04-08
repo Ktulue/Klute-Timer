@@ -256,3 +256,25 @@ class TestTimerFinishingState:
         blank_event.wait(timeout=3)
         assert blank_event.is_set()
         assert t.state == "finished"
+
+
+class TestTimerStartAfterPause:
+    def test_start_after_pause_resumes_does_not_restart(self):
+        """Regression test for bug found in first build:
+        Pressing Start while paused must resume from current remaining,
+        not reset to full duration."""
+        t = Timer(timer_id=0, duration=10)
+        t.start()
+        time.sleep(2.5)
+        t.pause()
+        remaining_at_pause = t.remaining
+        # remaining should be ~7 or 8 (started at 10, ran for ~2.5s)
+        assert remaining_at_pause < 10
+        assert remaining_at_pause >= 6  # tolerate timing variance
+
+        t.start()  # Press Start while paused — should resume, not restart
+        assert t.state == "running"
+        # remaining should still be close to remaining_at_pause, NOT reset to 10
+        assert t.remaining <= remaining_at_pause
+        assert t.remaining >= remaining_at_pause - 1  # might tick once during the assertion
+        t.stop()
