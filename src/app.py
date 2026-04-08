@@ -184,6 +184,14 @@ class Api:
 
     def update_preset(self, timer_id: int, updates: dict) -> None:
         if 0 <= timer_id < len(self._config.presets):
+            # end_message feature is paused — silently drop any attempted updates
+            if "end_message" in updates:
+                log.warning(
+                    "end_message updates are paused; ignoring",
+                    extra={"context": "update_preset", "state": f"timer_id={timer_id}"},
+                )
+                updates = {k: v for k, v in updates.items() if k != "end_message"}
+
             self._config.update_preset(timer_id, updates)
             preset = self._config.presets[timer_id]
             timer = self._timers[timer_id]
