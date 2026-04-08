@@ -12,6 +12,7 @@ from PIL import Image, ImageDraw
 from src.config import Config
 from src.timer import Timer
 from src.file_writer import FileWriter
+from src.sound_player import SoundPlayer
 from src.ws_client import StreamerbotClient
 from src.logger import setup_logger, get_logger
 
@@ -31,6 +32,7 @@ class Api:
         self._window: Optional[webview.Window] = None
         self._config = Config(os.path.join(BASE_DIR, "config.json"))
         self._file_writer = FileWriter()
+        self._sound_player = SoundPlayer()
         self._timers: list[Timer] = []
         self._ws_client: Optional[StreamerbotClient] = None
         self._ws_status = "disconnected"
@@ -52,6 +54,7 @@ class Api:
                 on_tick=self._on_tick,
                 on_finish=self._on_finish,
                 on_trigger=self._on_trigger,
+                on_blank=self._on_blank,
             )
             self._timers.append(timer)
 
@@ -71,7 +74,12 @@ class Api:
 
     def _on_finish(self, timer_id: int) -> None:
         preset = self._config.presets[timer_id]
-        self._file_writer.write_end_message(timer_id, preset.end_message)
+        sound = preset.finished_sound or self._config.default_finished_sound
+        self._sound_player.play(sound)
+        self._push_timer_update(timer_id)
+
+    def _on_blank(self, timer_id: int) -> None:
+        self._file_writer.clear(timer_id)
         self._push_timer_update(timer_id)
 
     def _on_trigger(self, timer_id: int, action_name: str) -> None:
