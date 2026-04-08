@@ -101,7 +101,14 @@ class Timer:
             self._remaining = self._duration
             self._trigger_fired = False
             self._state = "running"
-            self._stop_event.set()  # Wake up any in-progress hold wait
+            # Set the event to wake any in-progress hold wait in _run (cancels the
+            # finishing-state hold). Clear it immediately so the new run thread
+            # (spawned below, after the lock is released) enters its loop with the
+            # event unset. Both set() and clear() execute under self._lock, so no
+            # other public method can interleave between them, and the new thread
+            # is not spawned until after clear() completes — preserving the
+            # invariant that a fresh run thread always starts with a clean event.
+            self._stop_event.set()
             self._stop_event.clear()
 
         self._thread = threading.Thread(target=self._run, daemon=True)
@@ -158,15 +165,22 @@ class Timer:
         self.start()
 
     def _safe_call(self, callback, *args) -> None:
-        """Invoke a callback without letting exceptions escape into the run thread."""
+        """Invoke a callback without letting Exception subclasses escape into the run thread.
+
+        BaseException subclasses (KeyboardInterrupt, SystemExit) are intentionally
+        NOT caught — they should propagate to abort the thread. Daemon threads die
+        with the main process anyway, so this is mostly academic, but the asymmetry
+        is deliberate.
+        """
         if callback is None:
             return
         try:
             callback(*args)
         except Exception as e:
+            callback_label = getattr(callback, '__name__', None) or type(callback).__name__
             log.error(
                 f"timer {self._id} callback raised: {e}",
-                extra={"context": "callback", "state": f"callback={callback.__name__ if hasattr(callback, '__name__') else 'lambda'}"},
+                extra={"context": "callback", "state": f"callback={callback_label}"},
             )
 
     def _run(self) -> None:
@@ -221,7 +235,12 @@ class Timer:
                     return
 
                 with self._lock:
-                    # Only transition to finished if no one else changed state during the hold
+                    # Defensive: in the current implementation, no public method can
+                    # transition state out of 'finishing' without first signalling
+                    # _stop_event (which would have made wait() return True above).
+                    # The guard exists to keep this transition idempotent against
+                    # future code paths that might re-enter Timer methods from
+                    # within an _on_finish callback before the hold begins.
                     if self._state == "finishing":
                         self._state = "finished"
                 self._safe_call(self._on_blank, self._id)
