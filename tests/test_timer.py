@@ -37,14 +37,13 @@ class TestTimerState:
         assert t.state == "idle"
         assert t.remaining == 120
 
-    def test_reset_restarts(self):
+    def test_reset_method_does_not_exist(self):
+        """Defensive guard: Timer.reset() was deleted as part of the timer
+        polish work because there was no UI affordance for it. Stop already
+        does halt+reset+clear in one verb. If reset() comes back, it should
+        come back via a deliberate spec, not by accident."""
         t = Timer(timer_id=0, duration=120)
-        t.start()
-        time.sleep(1.5)
-        t.reset()
-        assert t.state == "running"
-        assert t.remaining == 120
-        t.stop()
+        assert not hasattr(t, "reset")
 
     def test_pause_toggle(self):
         t = Timer(timer_id=0, duration=120)

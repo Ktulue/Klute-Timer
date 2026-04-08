@@ -160,10 +160,6 @@ class Timer:
             extra={"context": "stop", "state": "idle"},
         )
 
-    def reset(self) -> None:
-        self.stop()
-        self.start()
-
     def _safe_call(self, callback, *args) -> None:
         """Invoke a callback without letting Exception subclasses escape into the run thread.
 
