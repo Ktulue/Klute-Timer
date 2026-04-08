@@ -415,6 +415,6 @@ select {
     display: block;
     margin-top: 4px;
     font-size: 0.8em;
-    color: #6b7d8a;
+    color: var(--text-secondary);
     font-style: italic;
 }
