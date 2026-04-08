@@ -210,6 +210,80 @@ class Api:
 
             self._push_timer_update(timer_id)
 
+    def pick_output_file(self, timer_id: int) -> Optional[str]:
+        """Open a native Save-dialog file picker for the given preset's output file.
+
+        Returns the chosen path on success, None on cancel or validation failure.
+        Validation failures are logged at WARNING level so the user can check
+        logs for the specific reason.
+        """
+        if not (0 <= timer_id < len(self._config.presets)):
+            log.warning(
+                f"pick_output_file: invalid timer_id {timer_id}",
+                extra={"context": "pick_output_file", "state": f"num_presets={len(self._config.presets)}"},
+            )
+            return None
+
+        if not self._window:
+            log.warning(
+                "pick_output_file: window not initialized",
+                extra={"context": "pick_output_file", "state": "no window"},
+            )
+            return None
+
+        # Open the native save dialog
+        result = self._window.create_file_dialog(
+            webview.SAVE_DIALOG,
+            file_types=("Text Files (*.txt)", "All files (*.*)"),
+            save_filename="timer_output.txt",
+        )
+
+        if not result:
+            # User cancelled
+            return None
+
+        # create_file_dialog returns a tuple/list — take the first entry
+        chosen_path = result[0] if isinstance(result, (list, tuple)) else result
+        normalized = os.path.normpath(os.path.abspath(chosen_path))
+
+        # Validate: parent dir must exist and be writable
+        parent_dir = os.path.dirname(normalized)
+        if not os.path.isdir(parent_dir):
+            log.warning(
+                f"pick_output_file: parent directory does not exist: {parent_dir}",
+                extra={"context": "pick_output_file", "state": f"path={normalized}"},
+            )
+            return None
+
+        if not os.access(parent_dir, os.W_OK):
+            log.warning(
+                f"pick_output_file: parent directory not writable: {parent_dir}",
+                extra={"context": "pick_output_file", "state": f"path={normalized}"},
+            )
+            return None
+
+        # Check for collision with another preset's output_file
+        for i, p in enumerate(self._config.presets):
+            if i == timer_id:
+                continue
+            other = os.path.normpath(os.path.abspath(os.path.join(BASE_DIR, p.output_file)))
+            if other == normalized:
+                log.warning(
+                    f"pick_output_file: path already used by preset {i} ({p.name})",
+                    extra={"context": "pick_output_file", "state": f"path={normalized}"},
+                )
+                return None
+
+        # All validation passed — apply the update via update_preset
+        # (which handles file_writer re-registration)
+        self.update_preset(timer_id, {"output_file": normalized})
+
+        log.info(
+            f"pick_output_file: timer {timer_id} output set to {normalized}",
+            extra={"context": "pick_output_file", "state": "success"},
+        )
+        return normalized
+
     def get_presets(self) -> list[dict]:
         return [p.to_dict() for p in self._config.presets]
 
