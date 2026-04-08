@@ -69,9 +69,10 @@
                     <label for="edit-duration">Duration (seconds)</label>
                     <input type="number" id="edit-duration" min="1" max="86400">
                 </div>
-                <div class="form-group">
+                <div class="form-group form-group-locked">
                     <label for="edit-end-message">End Message</label>
-                    <input type="text" id="edit-end-message" maxlength="50" placeholder="Blank when done">
+                    <input type="text" id="edit-end-message" maxlength="50" disabled>
+                    <small class="form-helper">Paused — returning in a future update</small>
                 </div>
                 <div class="form-group">
                     <label for="edit-trigger-seconds">Trigger at (seconds remaining)</label>

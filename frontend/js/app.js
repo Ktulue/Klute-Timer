@@ -188,7 +188,6 @@ async function savePreset(e) {
     const updates = {
         name: document.getElementById('edit-name').value,
         duration: parseInt(document.getElementById('edit-duration').value),
-        end_message: document.getElementById('edit-end-message').value,
         trigger_seconds: triggerSeconds ? parseInt(triggerSeconds) : null,
         trigger_action: triggerAction || null,
         output_file: document.getElementById('edit-output-file').value,

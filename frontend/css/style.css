@@ -403,3 +403,18 @@ select {
     outline: 2px solid var(--teal);
     outline-offset: 1px;
 }
+
+/* Locked form fields (e.g. paused features) */
+.form-group-locked input[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.form-helper {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.8em;
+    color: #6b7d8a;
+    font-style: italic;
+}
