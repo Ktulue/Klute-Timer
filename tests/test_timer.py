@@ -278,3 +278,61 @@ class TestTimerStartAfterPause:
         assert t.remaining <= remaining_at_pause
         assert t.remaining >= remaining_at_pause - 1  # might tick once during the assertion
         t.stop()
+
+
+class TestTimerDurationValidation:
+    def test_start_with_zero_duration_is_rejected(self, caplog):
+        t = Timer(timer_id=0, duration=0)
+        t.start()
+        assert t.state == "idle"
+        assert t.remaining == 0
+        assert any("rejected" in r.message.lower() for r in caplog.records)
+
+    def test_start_with_negative_duration_is_rejected(self, caplog):
+        t = Timer(timer_id=0, duration=-5)
+        t.start()
+        assert t.state == "idle"
+        assert any("rejected" in r.message.lower() for r in caplog.records)
+
+    def test_start_with_zero_override_duration_is_rejected(self):
+        t = Timer(timer_id=0, duration=60)
+        t.start(override_duration=0)
+        assert t.state == "idle"
+
+
+class TestTimerCallbackSafety:
+    def test_on_tick_exception_does_not_crash_thread(self):
+        ticks_after_exception = []
+
+        def raising_then_recording_tick(tid, rem):
+            if not ticks_after_exception:
+                ticks_after_exception.append(rem)
+                raise RuntimeError("first tick fails")
+            ticks_after_exception.append(rem)
+
+        t = Timer(timer_id=0, duration=4, on_tick=raising_then_recording_tick)
+        t.start()
+        time.sleep(2.5)
+        # The first tick raised but the thread should still have ticked again
+        assert len(ticks_after_exception) >= 2
+        t.stop()
+
+    def test_on_trigger_exception_does_not_crash_thread(self):
+        ticks = []
+
+        def raising_trigger(tid, action):
+            raise RuntimeError("trigger fails")
+
+        t = Timer(
+            timer_id=0,
+            duration=3,
+            trigger_seconds=2,
+            trigger_action="x",
+            on_trigger=raising_trigger,
+            on_tick=lambda tid, rem: ticks.append(rem),
+        )
+        t.start()
+        time.sleep(2.5)
+        # Trigger should have fired and raised, but countdown continues
+        assert len(ticks) >= 2
+        t.stop()
