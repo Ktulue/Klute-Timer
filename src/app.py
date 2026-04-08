@@ -177,11 +177,6 @@ class Api:
             self._file_writer.clear(timer_id)
             self._push_timer_update(timer_id)
 
-    def reset_timer(self, timer_id: int) -> None:
-        if 0 <= timer_id < len(self._timers):
-            self._timers[timer_id].reset()
-            self._push_timer_update(timer_id)
-
     def update_preset(self, timer_id: int, updates: dict) -> None:
         if 0 <= timer_id < len(self._config.presets):
             # end_message feature is paused — drop any attempted updates (WARNING is logged)
