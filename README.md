@@ -62,7 +62,7 @@ MIT
 
 ### Don't open output files in Windows Notepad while the app is running
 
-Klute-Timer writes to its output `.txt` files via atomic rename. Notepad opens files with a `FILE_SHARE_READ`-only handle which silently breaks the atomic write — the writer logs the failure and the OBS source freezes on its last good value with no obvious cause.
+Klute-Timer writes to its output `.txt` files via atomic rename. Notepad opens files without `FILE_SHARE_DELETE`, which silently blocks the atomic rename — the writer logs the failure and the OBS source freezes on its last good value with no obvious cause.
 
 Use one of these instead:
 - **VS Code** — opens with shared read access, refreshes on file change
@@ -81,7 +81,7 @@ Klute-Timer plays sounds via the Windows audio stack and does not have an in-app
 
 1. Right-click the speaker icon in your system tray → **Open Volume Mixer**
 2. Find the **Python** entry (it appears after Klute-Timer plays its first sound)
-3. Adjust the slider — the setting persists across reboots
+3. Adjust the slider — the setting usually persists across reboots, but note this controls all Python processes on your machine (any other Python script using audio will share the same slider)
 
 For per-preset volume control or to amplify a quiet source sound, edit the WAV in Audacity (Effect → Volume and Compression → Normalize, or → Amplify) and save it to `sounds/`, then set `finished_sound` in `config.json` to point at the amplified copy.
 
