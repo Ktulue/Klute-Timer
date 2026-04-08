@@ -33,7 +33,8 @@ function renderTimerCards() {
             <div class="timer-display" id="timer-display-${i}">${timer.formatted}</div>
             <div class="card-controls">
                 <button class="btn btn-start" data-timer="${i}" data-action="start"
-                    ${timer.state === 'running' ? 'disabled' : ''}>Start</button>
+                    ${timer.state === 'running' || (presets[i] && presets[i].duration <= 0) ? 'disabled' : ''}
+                    ${presets[i] && presets[i].duration <= 0 ? 'title="Set a duration > 0 to start"' : ''}>Start</button>
                 <button class="btn btn-pause" data-timer="${i}" data-action="pause"
                     ${timer.state !== 'running' && timer.state !== 'paused' ? 'disabled' : ''}>
                     ${timer.state === 'paused' ? 'Resume' : 'Pause'}</button>
@@ -70,7 +71,13 @@ function updateTimerCard(timer) {
     const pauseBtn = card.querySelector('[data-action="pause"]');
     const stopBtn = card.querySelector('[data-action="stop"]');
 
-    startBtn.disabled = timer.state === 'running';
+    const preset = presets[timer.id];
+    startBtn.disabled = timer.state === 'running' || (preset && preset.duration <= 0);
+    if (preset && preset.duration <= 0) {
+        startBtn.title = 'Set a duration > 0 to start';
+    } else {
+        startBtn.removeAttribute('title');
+    }
     pauseBtn.disabled = timer.state !== 'running' && timer.state !== 'paused';
     stopBtn.disabled = timer.state === 'idle';
     pauseBtn.textContent = timer.state === 'paused' ? 'Resume' : 'Pause';
@@ -189,6 +196,10 @@ async function savePreset(e) {
 
     await pywebview.api.update_preset(timerId, updates);
     presets[timerId] = { ...presets[timerId], ...updates };
+    // Re-render so the Start button reflects the new duration
+    const updatedState = await pywebview.api.get_state();
+    timers = updatedState.timers;
+    renderTimerCards();
     closeEditModal();
 }
 
