@@ -18,9 +18,27 @@ from src.logger import setup_logger, get_logger
 
 
 def get_base_dir() -> str:
+    """Directory for user-writable files (config.json, output/, logs/, sounds/).
+
+    In a frozen PyInstaller build these live next to the executable so the
+    user can still edit presets and OBS can read the output files.
+    """
     if getattr(sys, "frozen", False):
         return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def resource_path(*parts: str) -> str:
+    """Path to a read-only bundled asset (e.g. the frontend/ UI).
+
+    PyInstaller unpacks bundled data to sys._MEIPASS at runtime; in a normal
+    source checkout the assets live under the project root instead.
+    """
+    if getattr(sys, "frozen", False):
+        base = getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
+    else:
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, *parts)
 
 
 BASE_DIR = get_base_dir()
@@ -327,7 +345,7 @@ def main() -> None:
 
     api = Api()
 
-    frontend_path = os.path.join(BASE_DIR, "frontend", "index.html")
+    frontend_path = resource_path("frontend", "index.html")
 
     window = webview.create_window(
         "Klute Timer",

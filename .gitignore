@@ -19,6 +19,10 @@ sounds/*.wav
 sounds/*.WAV
 !sounds/.gitkeep
 
+# PyInstaller build artifacts (KluteTimer.spec is committed)
+build/
+dist/
+
 # IDE
 .vscode/
 .idea/
