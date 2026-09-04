@@ -32,6 +32,34 @@ pip install -r requirements.txt
 python -m src.app
 ```
 
+### Build the standalone app (KluteTimer.exe)
+
+To run Klute Timer by double-clicking a desktop shortcut — no Python or `pip`
+required on the target machine — build a standalone executable with PyInstaller:
+
+```bash
+pip install -r requirements-dev.txt   # installs pyinstaller
+build.bat                             # produces dist\KluteTimer\KluteTimer.exe
+```
+
+Then create a desktop shortcut pointing at it:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\create_shortcut.ps1
+```
+
+Notes:
+
+- The build is a one-folder bundle: `dist\KluteTimer\KluteTimer.exe` plus an
+  `_internal\` folder. **Keep them together** — the shortcut points at the exe,
+  so you never interact with `_internal\` directly.
+- `config.json`, `output\`, `logs\`, and `sounds\` live **next to the exe** in
+  `dist\KluteTimer\`, so presets stay editable and OBS can read the output files.
+- Rebuilding recreates `dist\KluteTimer\`, resetting its `config.json` to the
+  repo default. Back up a customized config before rebuilding.
+- The app icon is generated from `scripts\make_icon.py` (committed as
+  `assets\KluteTimer.ico`); rerun it only if you change the icon design.
+
 ### Streamer.bot Configuration
 
 1. Enable WebSocket server in Streamer.bot (Servers/Clients > WebSocket Server)
@@ -85,9 +113,11 @@ Klute-Timer plays sounds via the Windows audio stack and does not have an in-app
 
 For per-preset volume control or to amplify a quiet source sound, edit the WAV in Audacity (Effect → Volume and Compression → Normalize, or → Amplify) and save it to `sounds/`, then set `finished_sound` in `config.json` to point at the amplified copy.
 
-### Future packaging
+### Packaging
 
-The project currently launches via `python -m src.app` or `launch.bat` (a stopgap script in the project root). A real `KluteTimer.exe` build via PyInstaller is tracked as a follow-up.
+For day-to-day development the app launches via `python -m src.app` or
+`launch.bat`. For a double-click desktop app, build the standalone
+`KluteTimer.exe` — see [Build the standalone app](#build-the-standalone-app-klutetimerexe) under Setup.
 
 ---
 
