@@ -13,53 +13,62 @@ Stream timer app replacing the defunct Elk Timer. Python desktop GUI with Stream
 - In-app log viewer for debugging
 - Minimize to system tray
 
+## Install
+
+1. Get `KluteTimerSetup-<version>.exe`, either from a release or by building it
+   yourself (see [Build the installer](#build-the-installer)).
+2. Run it. No administrator rights are needed: Klute Timer installs for your
+   Windows account only, into `%LOCALAPPDATA%\Programs\KluteTimer\`.
+3. The installer is not code-signed, so Windows SmartScreen may say it
+   "protected your PC" the first time. Click **More info**, then **Run anyway**.
+
+The installer adds Klute Timer to the Start Menu and, unless you untick the
+box, to your desktop. To upgrade, run a newer installer over the top: your
+settings are kept. If Klute Timer is running, including minimized to the tray,
+the installer asks you to close it first rather than stopping a live timer.
+
 ## Setup
 
 ### Requirements
 
-- Python 3.10+
+- Windows 10 or 11
 - Streamer.bot with WebSocket server enabled (default port: 8059)
 
-### Install
+### Run from source
+
+For development, with Python 3.10+:
 
 ```bash
 pip install -r requirements.txt
-```
-
-### Run
-
-```bash
 python -m src.app
 ```
 
-### Build the standalone app (KluteTimer.exe)
-
-To run Klute Timer by double-clicking a desktop shortcut — no Python or `pip`
-required on the target machine — build a standalone executable with PyInstaller:
+### Build the installer
 
 ```bash
-pip install -r requirements-dev.txt   # installs pyinstaller
-build.bat                             # produces dist\KluteTimer\KluteTimer.exe
+pip install -r requirements-dev.txt     # installs pyinstaller
+winget install JRSoftware.InnoSetup     # one-time: Inno Setup 6.3 or later
+build.bat
 ```
 
-Then create a desktop shortcut pointing at it:
+`build.bat` produces two things:
 
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\create_shortcut.ps1
-```
+| Output | What it is |
+| --- | --- |
+| `dist\KluteTimer\KluteTimer.exe` | The app, as a one-folder PyInstaller build with `_internal\` beside it |
+| `dist\installer\KluteTimerSetup-<version>.exe` | The installer that packages it |
 
 Notes:
 
-- The build is a one-folder bundle: `dist\KluteTimer\KluteTimer.exe` plus an
-  `_internal\` folder. **Keep them together** — the shortcut points at the exe,
-  so you never interact with `_internal\` directly.
-- **Nothing you own lives in `dist\KluteTimer\`.** Your settings, logs, and the
-  default output folder live in `%APPDATA%\KluteTimer\` instead, so rebuilding
-  is always safe. Rebuilding a previous version used to delete `config.json` and
-  silently send the output files back to their default folder, which left OBS
-  reading a file nothing was updating any more.
-- The first build after this change carries a `config.json` still sitting beside
-  the exe over to `%APPDATA%\KluteTimer\`. It never overwrites one already there.
+- The version lives in one place, `src/version.py`. The exe, the installer, the
+  Installed apps entry, and the Settings panel all read it from there.
+- **Nothing you own lives in `dist\`.** Your settings, logs, and the default
+  output folder live in `%APPDATA%\KluteTimer\`, so rebuilding is always safe.
+- Close Klute Timer before rebuilding if it is running from `dist\KluteTimer\`;
+  a running exe holds its log file open and blocks the build.
+- If you used a desktop shortcut from an older build and untick the desktop
+  shortcut box while installing, that old shortcut still points at
+  `dist\KluteTimer\`. Delete it.
 - The app icon is generated from `scripts\make_icon.py` (committed as
   `assets\KluteTimer.ico`); rerun it only if you change the icon design.
 
@@ -119,16 +128,26 @@ them back. Either way the settings panel shows the full path of every file, with
 a **Copy Path** button for pasting into the OBS file picker. Re-point your OBS
 text sources afterwards, because moving the files does not move OBS with them.
 
-The app folder itself, `dist\KluteTimer\`, holds only the program. You can
-delete and rebuild it without losing anything.
+The install folder, `%LOCALAPPDATA%\Programs\KluteTimer\`, holds only the
+program. Installing, upgrading, or reinstalling never touches your data.
 
 ### Removing Klute Timer
 
-There is no installer yet, so the app does not appear in Windows Settings under
-Apps and Installed apps. To remove it completely, delete both:
+Uninstall it from **Windows Settings > Apps > Installed apps**: find
+**Klute Timer**, open the **...** menu, and choose **Uninstall**. Close the app
+first if it is running, including from the tray.
 
-1. The app folder, `dist\KluteTimer\`, or wherever you copied it.
-2. Your data folder, `%APPDATA%\KluteTimer\`.
+The uninstaller removes the program, its Start Menu and desktop shortcuts, and
+its Installed apps entry. It then asks whether to also delete your settings,
+presets, logs, and timer text files in `%APPDATA%\KluteTimer\`:
+
+- **No** (the default) keeps them, so a future reinstall picks up exactly where
+  you left off.
+- **Yes** deletes that folder.
+
+A custom output folder you chose somewhere else, such as
+`C:\Streaming\Overlays\`, is never deleted either way. A silent uninstall
+(`/SILENT` or `/VERYSILENT`) keeps your data without asking.
 
 ## Configuration
 
@@ -172,8 +191,8 @@ For per-preset volume control or to amplify a quiet source sound, edit the WAV i
 ### Packaging
 
 For day-to-day development the app launches via `python -m src.app` or
-`launch.bat`. For a double-click desktop app, build the standalone
-`KluteTimer.exe` — see [Build the standalone app](#build-the-standalone-app-klutetimerexe) under Setup.
+`launch.bat`. To install it like any other Windows app, build and run the
+installer — see [Build the installer](#build-the-installer) under Setup.
 
 ---
 

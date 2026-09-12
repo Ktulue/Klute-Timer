@@ -108,3 +108,17 @@ class TestBuildScript:
     def test_shortcut_script_is_retired(self):
         assert not os.path.exists(os.path.join(ROOT, "scripts", "create_shortcut.ps1"))
         assert "create_shortcut" not in _read("build.bat")
+
+
+class TestReadme:
+    def test_no_longer_mentions_the_shortcut_script(self):
+        assert "create_shortcut" not in _read("README.md")
+
+    def test_documents_installed_apps_uninstall_and_smartscreen(self):
+        readme = _read("README.md")
+        assert "Installed apps" in readme
+        assert "Run anyway" in readme
+        assert "winget install JRSoftware.InnoSetup" in readme
+
+    def test_keeps_the_support_section(self):
+        assert "ko-fi.com/ktulue" in _read("README.md")
