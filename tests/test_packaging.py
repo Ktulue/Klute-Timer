@@ -317,8 +317,19 @@ class TestReadme:
     def test_documents_installed_apps_uninstall_and_smartscreen(self):
         readme = _read("README.md")
         assert "Installed apps" in readme
+        assert "Apps & features" in readme
         assert "Run anyway" in readme
         assert "winget install JRSoftware.InnoSetup" in readme
+
+    def test_requires_inno_six_seven(self):
+        readme = _read("README.md")
+        assert "Inno Setup 6.7 or later" in readme
+        assert "6.3" not in readme
+
+    def test_removing_section_matches_the_data_prompt(self):
+        readme = " ".join(_read("README.md").split())
+        assert "anything else saved there, such as custom sounds" in readme
+        assert "before it removes the program" in readme
 
     def test_keeps_the_support_section(self):
         assert "ko-fi.com/ktulue" in _read("README.md")

@@ -17,10 +17,15 @@ Stream timer app replacing the defunct Elk Timer. Python desktop GUI with Stream
 
 1. Get `KluteTimerSetup-<version>.exe`, either from a release or by building it
    yourself (see [Build the installer](#build-the-installer)).
-2. Run it. No administrator rights are needed: Klute Timer installs for your
-   Windows account only, into `%LOCALAPPDATA%\Programs\KluteTimer\`.
-3. The installer is not code-signed, so Windows SmartScreen may say it
-   "protected your PC" the first time. Click **More info**, then **Run anyway**.
+2. If you previously ran Klute Timer from a copied folder, such as
+   `dist\KluteTimer\`, deal with that copy first. If it predates settings moving
+   to `%APPDATA%\KluteTimer\`, launch it once so its settings carry over. Then
+   quit it from the tray icon before installing.
+3. Run the installer. No administrator rights are needed: Klute Timer installs
+   for your Windows account only, into `%LOCALAPPDATA%\Programs\KluteTimer\`.
+4. The installer is not code-signed, so Windows SmartScreen may say it
+   "protected your PC". This can happen again for each new version, not only
+   the first time. Click **More info**, then **Run anyway**.
 
 The installer adds Klute Timer to the Start Menu and, unless you untick the
 box, to your desktop. To upgrade, run a newer installer over the top: your
@@ -47,7 +52,7 @@ python -m src.app
 
 ```bash
 pip install -r requirements-dev.txt     # installs pyinstaller
-winget install JRSoftware.InnoSetup     # one-time: Inno Setup 6.3 or later
+winget install JRSoftware.InnoSetup     # one-time: Inno Setup 6.7 or later
 build.bat
 ```
 
@@ -60,8 +65,13 @@ build.bat
 
 Notes:
 
-- The version lives in one place, `src/version.py`. The exe, the installer, the
+- The version lives in one place, `src/version.py`, and must be plain
+  `MAJOR.MINOR.PATCH`; the build stops otherwise. The exe, the installer, the
   Installed apps entry, and the Settings panel all read it from there.
+- Already have an older Inno Setup? `winget upgrade JRSoftware.InnoSetup`.
+  The installer script refuses to compile with anything older than 6.7.
+- The build deletes any existing installer for the same version before it
+  starts, so a failed build never leaves an old one looking like the new one.
 - **Nothing you own lives in `dist\`.** Your settings, logs, and the default
   output folder live in `%APPDATA%\KluteTimer\`, so rebuilding is always safe.
 - Close Klute Timer before rebuilding if it is running from `dist\KluteTimer\`;
@@ -101,11 +111,12 @@ them before a timer has ever run. For each one, add a **Text (GDI+)** source in
 OBS, tick **Read from file**, and browse to it. The file updates every second
 while that timer runs.
 
-To keep the files somewhere else — outside the repo, or on a drive you back up —
-use **Change Folder...** in Settings. The four files are created in the new
-location immediately; re-point your OBS sources afterwards, since they keep
-reading the old path until you do. The folder you choose is stored as an
-absolute path, so rebuilding or moving the app won't relocate your files.
+To keep the files somewhere else — a folder with your other overlay files, or a
+drive you back up — use **Change Folder...** in Settings. The four files are
+created in the new location immediately; re-point your OBS sources afterwards,
+since they keep reading the old path until you do. The folder you choose is
+stored as an absolute path, so upgrading, reinstalling, or rebuilding the app
+won't relocate your files.
 
 The output folder is also shown in the footer at all times, so you always know
 where the app is writing.
@@ -133,20 +144,26 @@ program. Installing, upgrading, or reinstalling never touches your data.
 
 ### Removing Klute Timer
 
-Uninstall it from **Windows Settings > Apps > Installed apps**: find
-**Klute Timer**, open the **...** menu, and choose **Uninstall**. Close the app
-first if it is running, including from the tray.
+Uninstall it from **Windows Settings > Apps > Installed apps** on Windows 11
+(**Settings > Apps > Apps & features** on Windows 10): find **Klute Timer**,
+open the **...** menu, and choose **Uninstall**. Close the app first if it is
+running, including from the tray.
 
-The uninstaller removes the program, its Start Menu and desktop shortcuts, and
-its Installed apps entry. It then asks whether to also delete your settings,
-presets, logs, and timer text files in `%APPDATA%\KluteTimer\`:
+If your data folder, `%APPDATA%\KluteTimer\`, exists, the uninstaller asks
+about it first, before it removes the program: whether to also delete that
+whole folder, meaning your settings, presets, logs, timer text files, and
+anything else saved there, such as custom sounds.
 
-- **No** (the default) keeps them, so a future reinstall picks up exactly where
-  you left off.
-- **Yes** deletes that folder.
+- **No** (the default) keeps the folder, so a future reinstall picks up exactly
+  where you left off.
+- **Yes** deletes the folder and everything in it, once the program has been
+  removed.
+
+Either way, the uninstaller then removes the program, its Start Menu and
+desktop shortcuts, and its Installed apps entry.
 
 A custom output folder you chose somewhere else, such as
-`C:\Streaming\Overlays\`, is never deleted either way. A silent uninstall
+`C:\Streaming\Overlays\`, is never deleted, whatever you answer. A silent uninstall
 (`/SILENT` or `/VERYSILENT`) keeps your data without asking.
 
 ## Configuration
