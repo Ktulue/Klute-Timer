@@ -88,3 +88,23 @@ class TestInstallerScript:
         assert "DirExists" in code
         assert "DelTree" in code
         assert "= IDYES" in code
+
+
+class TestBuildScript:
+    def test_reads_version_from_src_version(self):
+        assert "from src.version import __version__" in _read("build.bat")
+
+    def test_passes_version_to_inno(self):
+        bat = _read("build.bat")
+        assert "/DAppVersion=%KT_VERSION%" in bat
+        assert r"installer\KluteTimer.iss" in bat
+
+    def test_explains_how_to_get_inno_when_missing(self):
+        assert "winget install JRSoftware.InnoSetup" in _read("build.bat")
+
+    def test_has_no_version_literal(self):
+        assert not re.search(r"\d+\.\d+\.\d+", _read("build.bat"))
+
+    def test_shortcut_script_is_retired(self):
+        assert not os.path.exists(os.path.join(ROOT, "scripts", "create_shortcut.ps1"))
+        assert "create_shortcut" not in _read("build.bat")
