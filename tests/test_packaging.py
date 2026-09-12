@@ -5,6 +5,8 @@ replace building and installing: the installed exe is the arbiter.
 """
 import os
 import re
+import subprocess
+import sys
 
 from src.paths import APP_FOLDER_NAME
 from src.single_instance import APP_MUTEX_NAME
@@ -226,8 +228,76 @@ class TestBuildScript:
 
     def test_passes_version_to_inno(self):
         bat = _read("build.bat")
-        assert "/DAppVersion=%KT_VERSION%" in bat
+        assert '"/DAppVersion=%KT_VERSION%"' in bat
         assert r"installer\KluteTimer.iss" in bat
+
+    def test_finds_iscc_on_path_first_then_program_files_then_local_appdata(self):
+        bat = _read("build.bat")
+        where = bat.index('where "$PATH:ISCC.exe"')
+        program_files = bat.index(r"%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe")
+        local = bat.index(r"%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe")
+        assert where < program_files < local
+        assert "where ISCC " not in bat
+        assert re.search(r"^echo .*%ISCC%", bat, re.MULTILINE), "resolved ISCC path not echoed"
+
+    def test_deletes_a_stale_installer_before_building(self):
+        bat = _read("build.bat")
+        pyinstaller = bat.index("python -m PyInstaller")
+        delete = re.search(r"^if exist .*\bdel\b.*$", bat, re.MULTILINE)
+        assert delete, "no stale installer delete"
+        assert "KluteTimerSetup-%KT_VERSION%.exe" in bat[:delete.end()]
+        assert delete.end() < pyinstaller
+        still_there = bat.find("if exist", delete.end())
+        assert 0 <= still_there < pyinstaller, "no check that the delete worked"
+        assert "exit /b 1" in bat[still_there:pyinstaller]
+
+    def test_iscc_failure_hint_is_neutral_and_escaped(self):
+        bat = _read("build.bat")
+        assert "echo Installer build FAILED. See the Inno Setup output above." in bat
+        assert (
+            "echo Common causes: Inno Setup older than 6.7 ^(winget upgrade "
+            "JRSoftware.InnoSetup^), or the installer file is open."
+        ) in bat
+        assert "6.3" not in bat
+
+    def test_never_echoes_the_data_path_inside_a_block(self):
+        depth = 0
+        for line in _read("build.bat").splitlines():
+            stripped = line.strip()
+            if stripped == ")":
+                depth -= 1
+                continue
+            if depth > 0 and "echo" in stripped.lower() and "%KT_DATA%" in stripped:
+                raise AssertionError(f"%KT_DATA% echoed inside a block: {stripped}")
+            if stripped.endswith("("):
+                depth += 1
+
+    def _version_check_command(self) -> str:
+        match = re.search(r"""in \('python -c "([^"]+)"'\)""", _read("build.bat"))
+        assert match, "version one-liner missing from build.bat"
+        return match.group(1)
+
+    def _run_version_check(self, folder, version: str) -> subprocess.CompletedProcess:
+        (folder / "src").mkdir(parents=True)
+        (folder / "src" / "__init__.py").write_text("")
+        (folder / "src" / "version.py").write_text(f"__version__ = {version!r}\n")
+        return subprocess.run(
+            [sys.executable, "-c", self._version_check_command()],
+            cwd=folder, capture_output=True, text=True,
+        )
+
+    def test_version_check_accepts_major_minor_patch(self, tmp_path):
+        version = ".".join(["4", "12", "0"])
+        result = self._run_version_check(tmp_path, version)
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == version
+
+    def test_version_check_rejects_anything_else(self, tmp_path):
+        bad_versions = ["1.0", "1.0.0-beta", "1.0.0 & calc", "v1.0.0", "1.0.0\n", "01.0.0)"]
+        for index, bad in enumerate(bad_versions):
+            result = self._run_version_check(tmp_path / str(index), bad)
+            assert result.returncode != 0, bad
+            assert result.stdout.strip() == "", bad
 
     def test_explains_how_to_get_inno_when_missing(self):
         assert "winget install JRSoftware.InnoSetup" in _read("build.bat")
