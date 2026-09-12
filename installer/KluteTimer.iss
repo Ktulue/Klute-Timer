@@ -11,6 +11,12 @@
   #error AppVersion is not defined. Build with build.bat, which passes /DAppVersion from src\version.py.
 #endif
 
+; This script is built and verified with Inno Setup 6.7. Refuse an older
+; compiler outright rather than risk it building a subtly different installer.
+#if Ver < EncodeVer(6,7,0)
+  #error Inno Setup 6.7 or later is required. Run: winget upgrade JRSoftware.InnoSetup
+#endif
+
 [Setup]
 ; AppId ties upgrades and the uninstall entry together. Never change it.
 AppId={{32085ADC-A6C1-4CF4-A9CE-7DAD72791E68}
@@ -44,10 +50,11 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 
 [InstallDelete]
-Type: filesandordirs; Name: "{app}\_internal"
+Type: filesandordirs; Name: "{app}\_internal"; Check: IsDefaultInstallDir
 
 [Files]
-Source: "..\dist\KluteTimer\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; A pre-%APPDATA% build could leave user data in dist\KluteTimer; never ship it.
+Source: "..\dist\KluteTimer\*"; DestDir: "{app}"; Excludes: "config.json,logs\*,output\*"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Shortcuts:"
@@ -57,7 +64,8 @@ Name: "{autoprograms}\Klute Timer"; Filename: "{app}\KluteTimer.exe"; WorkingDir
 Name: "{autodesktop}\Klute Timer"; Filename: "{app}\KluteTimer.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\KluteTimer.exe"; Description: "Launch Klute Timer"; Flags: postinstall nowait skipifsilent
+; Skipped when setup runs elevated: the app would inherit administrator rights.
+Filename: "{app}\KluteTimer.exe"; Description: "Launch Klute Timer"; Flags: postinstall nowait skipifsilent; Check: not IsAdmin
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"; Check: IsDefaultInstallDir
@@ -80,21 +88,40 @@ begin
     Result := '';
 end;
 
+var
+  DeleteDataOnUninstall: Boolean;
+
+// Ask at usAppMutexCheck, which comes before the uninstaller's AppMutex check:
+// asking later would leave the prompt open after that check, and the user
+// could start Klute Timer again underneath it. Delete only at usPostUninstall,
+// once the program itself has been removed without error.
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   DataDir: String;
 begin
-  if (CurUninstallStep = usUninstall) and (not UninstallSilent) then
+  DataDir := ExpandConstant('{userappdata}\KluteTimer');
+
+  if CurUninstallStep = usAppMutexCheck then
   begin
-    DataDir := ExpandConstant('{userappdata}\KluteTimer');
-    if DirExists(DataDir) then
+    DeleteDataOnUninstall := False;
+    if (not UninstallSilent) and DirExists(DataDir) then
     begin
-      if MsgBox('Also delete your Klute Timer settings, presets, logs, and timer text files?' + #13#10 + #13#10 +
-                DataDir + #13#10 + #13#10 +
-                'Choose No to keep them for a future reinstall. A custom output folder you chose somewhere else is never deleted.',
-                mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
-        if not DelTree(DataDir, True, True, True) then
-          MsgBox('Some files in ' + DataDir + ' could not be deleted, possibly because another program (such as OBS) has them open. You can delete that folder by hand.', mbInformation, MB_OK);
+      DeleteDataOnUninstall :=
+        MsgBox('Also delete your Klute Timer data folder?' + #13#10 + #13#10 +
+               DataDir + #13#10 + #13#10 +
+               'This removes your settings, presets, logs, timer text files, and anything else saved there, such as custom sounds. ' +
+               'Choose No to keep it for a future reinstall. ' +
+               'A custom output folder you chose somewhere else is never deleted.',
+               mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES;
+    end;
+  end;
+
+  if CurUninstallStep = usPostUninstall then
+  begin
+    if DeleteDataOnUninstall and DirExists(DataDir) then
+    begin
+      if not DelTree(DataDir, True, True, True) then
+        MsgBox('Some files in ' + DataDir + ' could not be deleted, possibly because another program (such as OBS) has them open. You can delete that folder by hand.', mbInformation, MB_OK);
     end;
   end;
 end;

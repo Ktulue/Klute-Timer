@@ -6,6 +6,7 @@ replace building and installing: the installed exe is the arbiter.
 import os
 import re
 
+from src.paths import APP_FOLDER_NAME
 from src.single_instance import APP_MUTEX_NAME
 from src.version import __version__
 
@@ -31,8 +32,37 @@ class TestSpec:
         assert not re.search(r"['\"]\d+\.\d+\.\d+['\"]", spec)
 
 
+def _section(text: str, name: str) -> str:
+    match = re.search(
+        rf"^\[{re.escape(name)}\]\s*$(.*?)(?=^\[|\Z)", text, re.MULTILINE | re.DOTALL
+    )
+    assert match, f"[{name}] section missing"
+    return match.group(1)
+
+
+def _entries(section: str) -> list[str]:
+    return [line for line in section.splitlines() if line.strip() and not line.startswith(";")]
+
+
+def _pascal_block(code: str, start_pattern: str) -> str:
+    """The text from start_pattern through the end matching the next begin."""
+    match = re.search(start_pattern, code)
+    assert match, f"{start_pattern!r} not found in [Code]"
+    depth = 0
+    for token in re.finditer(r"\b(begin|end)\b", code[match.end():], re.IGNORECASE):
+        depth += 1 if token.group(1).lower() == "begin" else -1
+        if depth == 0:
+            return code[match.start():match.end() + token.end()]
+    raise AssertionError(f"unbalanced begin/end after {start_pattern!r}")
+
+
 class TestInstallerScript:
     ISS = ("installer", "KluteTimer.iss")
+
+    def _code(self) -> str:
+        parts = re.split(r"^\[Code\]\s*$", _read(*self.ISS), maxsplit=1, flags=re.MULTILINE)
+        assert len(parts) == 2, "[Code] section missing from KluteTimer.iss"
+        return parts[1]
 
     def _directive(self, name: str) -> str:
         match = re.search(rf"^\s*{name}=(.*)$", _read(*self.ISS), re.MULTILINE)
@@ -86,6 +116,43 @@ class TestInstallerScript:
             re.MULTILINE,
         )
 
+    def test_install_delete_only_runs_for_the_default_install_dir(self):
+        match = re.search(
+            r'^\[InstallDelete\]\s*^(Type: filesandordirs; Name: "\{app\}\\_internal".*)$',
+            _read(*self.ISS),
+            re.MULTILINE,
+        )
+        assert match, "[InstallDelete] entry missing"
+        assert "Check: IsDefaultInstallDir" in match.group(1)
+
+    def test_files_never_package_user_data_left_in_the_build_folder(self):
+        entries = _entries(_section(_read(*self.ISS), "Files"))
+        assert len(entries) == 1
+        assert 'Excludes: "config.json,logs\\*,output\\*"' in entries[0]
+
+    def test_refuses_to_compile_with_inno_older_than_six_seven(self):
+        iss = _read(*self.ISS)
+        guard = re.search(
+            r"^#if Ver < EncodeVer\(6,7,0\)\s*^\s*#error .*$\s*^#endif", iss, re.MULTILINE
+        )
+        assert guard, "Inno Setup version guard missing"
+        assert "winget upgrade JRSoftware.InnoSetup" in guard.group(0)
+        assert iss.index("#ifndef AppVersion") < guard.start()
+
+    def test_post_install_launch_is_skipped_when_setup_runs_elevated(self):
+        entries = _entries(_section(_read(*self.ISS), "Run"))
+        assert len(entries) == 1
+        assert "postinstall" in entries[0]
+        check = re.search(r"Check: ([^;]+?)\s*(;|$)", entries[0])
+        assert check, "[Run] launch entry has no Check"
+        assert check.group(1) in ("not IsAdmin", "IsNotAdmin")
+        if check.group(1) == "IsNotAdmin":
+            assert "function IsNotAdmin: Boolean" in self._code()
+
+    def test_script_is_pure_ascii(self):
+        with open(os.path.join(ROOT, *self.ISS), "rb") as f:
+            f.read().decode("ascii")
+
     def test_uninstall_removes_the_whole_install_folder(self):
         assert re.search(
             r'^\[UninstallDelete\]\s*^Type: filesandordirs; Name: "\{app\}"',
@@ -109,17 +176,39 @@ class TestInstallerScript:
         assert "{autopf}\\KluteTimer" in code
 
     def test_data_prompt_defaults_to_keep_and_skips_silent_uninstall(self):
-        iss = _read(*self.ISS)
-        parts = re.split(r"^\[Code\]\s*$", iss, maxsplit=1, flags=re.MULTILINE)
-        assert len(parts) == 2, "[Code] section missing from KluteTimer.iss"
-        code = parts[1]
+        code = self._code()
         assert "not UninstallSilent" in code
         assert "MB_YESNO or MB_DEFBUTTON2" in code
-        assert r"{userappdata}\KluteTimer" in code
+        assert "{userappdata}\\" + APP_FOLDER_NAME in code
         assert "DirExists" in code
         assert "DelTree" in code
         assert "not DelTree" in code
         assert "= IDYES" in code
+
+    def test_data_prompt_runs_before_the_app_mutex_check(self):
+        code = self._code()
+        prompt = _pascal_block(code, r"CurUninstallStep = usAppMutexCheck\b")
+        assert "not UninstallSilent" in prompt
+        assert "DirExists" in prompt
+        assert "MsgBox(" in prompt
+        assert "MB_YESNO or MB_DEFBUTTON2" in prompt
+        assert "DelTree" not in prompt
+        assert "usUninstall" not in code
+
+    def test_data_is_deleted_only_after_the_program_is_removed(self):
+        code = self._code()
+        post = _pascal_block(code, r"CurUninstallStep = usPostUninstall\b")
+        assert "not DelTree(" in post
+        assert code.count("DelTree(") == 1
+
+    def test_data_prompt_says_yes_removes_everything_in_the_folder(self):
+        code = " ".join(self._code().split()).replace("' + '", "")
+        assert "'Also delete your Klute Timer data folder?'" in code
+        assert (
+            "This removes your settings, presets, logs, timer text files, and anything "
+            "else saved there, such as custom sounds. Choose No to keep it for a future "
+            "reinstall. A custom output folder you chose somewhere else is never deleted."
+        ) in code
 
     def test_icons_have_a_working_dir(self):
         iss = _read(*self.ISS)
