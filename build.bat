@@ -27,7 +27,7 @@ echo [2/4] Reading the version from src\version.py...
 REM The one-liner prints nothing and exits non-zero unless __version__ is
 REM exactly MAJOR.MINOR.PATCH, so nothing else reaches file names or ISCC.
 set "KT_VERSION="
-for /f "delims=" %%v in ('python -c "import re, sys; from src.version import __version__ as v; ok = isinstance(v, str) and re.fullmatch(r'\d+\.\d+\.\d+', v); print(v) if ok else sys.exit('src/version.py: __version__ must be MAJOR.MINOR.PATCH, not ' + repr(v))"') do set "KT_VERSION=%%v"
+for /f "delims=" %%v in ('python -c "import re, sys; from src.version import __version__ as v; ok = isinstance(v, str) and re.fullmatch(r'\d+\.\d+\.\d+', v, re.ASCII); print(v) if ok else sys.exit('src/version.py: __version__ must be MAJOR.MINOR.PATCH, not ' + repr(v))"') do set "KT_VERSION=%%v"
 if not defined KT_VERSION (
     echo.
     echo Build FAILED. Could not read a MAJOR.MINOR.PATCH version from src\version.py.

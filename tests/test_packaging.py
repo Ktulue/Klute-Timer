@@ -280,10 +280,13 @@ class TestBuildScript:
     def _run_version_check(self, folder, version: str) -> subprocess.CompletedProcess:
         (folder / "src").mkdir(parents=True)
         (folder / "src" / "__init__.py").write_text("")
-        (folder / "src" / "version.py").write_text(f"__version__ = {version!r}\n")
+        (folder / "src" / "version.py").write_text(
+            f"__version__ = {version!r}\n", encoding="utf-8"
+        )
+        env = dict(os.environ, PYTHONIOENCODING="utf-8")
         return subprocess.run(
             [sys.executable, "-c", self._version_check_command()],
-            cwd=folder, capture_output=True, text=True,
+            cwd=folder, capture_output=True, text=True, encoding="utf-8", env=env,
         )
 
     def test_version_check_accepts_major_minor_patch(self, tmp_path):
@@ -298,6 +301,17 @@ class TestBuildScript:
             result = self._run_version_check(tmp_path / str(index), bad)
             assert result.returncode != 0, bad
             assert result.stdout.strip() == "", bad
+
+    def test_version_check_rejects_non_ascii_digits(self, tmp_path):
+        # \d without re.ASCII also matches Unicode digits, e.g. Arabic-indic "1".
+        bad = "١.2.3"
+        result = self._run_version_check(tmp_path, bad)
+        assert result.returncode != 0, repr(bad)
+        assert result.stdout.strip() == "", repr(bad)
+
+    def test_version_check_uses_ascii_only_digits(self):
+        bat = _read("build.bat")
+        assert "re.ASCII" in bat or "[0-9]" in bat
 
     def test_explains_how_to_get_inno_when_missing(self):
         assert "winget install JRSoftware.InnoSetup" in _read("build.bat")
