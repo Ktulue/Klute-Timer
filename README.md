@@ -57,6 +57,9 @@ Notes:
   `dist\KluteTimer\`, so presets stay editable and OBS can read the output files.
 - Rebuilding recreates `dist\KluteTimer\`, resetting its `config.json` to the
   repo default. Back up a customized config before rebuilding.
+- Because a rebuild wipes `dist\`, point OBS at an output folder **outside** it —
+  set one via **Settings > Change Folder...** — or copy `dist\KluteTimer\` to a
+  permanent install location and run it from there.
 - The app icon is generated from `scripts\make_icon.py` (committed as
   `assets\KluteTimer.ico`); rerun it only if you change the icon design.
 
@@ -72,7 +75,31 @@ Notes:
 
 ### OBS Setup
 
-Add a GDI+ Text source in OBS pointing to the output file (e.g., `output/socials.txt`). The file updates every second while a timer is running.
+Each preset writes to its own `.txt` file, and all four live together in one
+folder. To find them, click **Settings** (the gear in the footer) — it shows the
+full path to the output folder, an **Open Folder** button, and the exact file
+each timer writes to:
+
+| Timer | File |
+|---|---|
+| Socials | `socials.txt` |
+| Intro | `intro.txt` |
+| Break | `break.txt` |
+| Custom | `custom.txt` |
+
+All four files are created the moment the app starts, so you can point OBS at
+them before a timer has ever run. For each one, add a **Text (GDI+)** source in
+OBS, tick **Read from file**, and browse to it. The file updates every second
+while that timer runs.
+
+To keep the files somewhere else — outside the repo, or on a drive you back up —
+use **Change Folder...** in Settings. The four files are created in the new
+location immediately; re-point your OBS sources afterwards, since they keep
+reading the old path until you do. The folder you choose is stored as an
+absolute path, so rebuilding or moving the app won't relocate your files.
+
+The output folder is also shown in the footer at all times, so you always know
+where the app is writing.
 
 ## Configuration
 

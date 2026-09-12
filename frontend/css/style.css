@@ -450,3 +450,154 @@ select {
     cursor: default;
     background: rgba(255, 255, 255, 0.06);
 }
+
+/* === Footer output-folder indicator === */
+/* Pushed to the right so the folder the OBS sources read is always on screen. */
+.footer-output {
+    margin-left: auto;
+    min-width: 0;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+}
+
+.footer-output span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.footer-output svg {
+    flex-shrink: 0;
+}
+
+/* === Settings === */
+.settings-body {
+    padding: 16px;
+    overflow-y: auto;
+}
+
+.settings-section + .settings-section {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+}
+
+.settings-section h3 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--teal);
+}
+
+.settings-hint {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+/* Paths are selectable so they can be pasted straight into OBS. */
+.path-display {
+    margin-top: 8px;
+    padding: 8px 10px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-primary);
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    word-break: break-all;
+    user-select: text;
+}
+
+.settings-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.notice {
+    margin-top: 12px;
+    padding: 10px;
+    font-size: 12px;
+    border-radius: var(--radius-sm);
+    border-left: 3px solid;
+}
+
+/* Paired with a "Warning:" label so the state never rests on colour alone. */
+.notice-warn {
+    color: var(--text-primary);
+    background: var(--amber-dim);
+    border-left-color: var(--amber);
+}
+
+.notice-confirm {
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+    border-left-color: var(--teal);
+}
+
+.file-list {
+    margin-top: 12px;
+    list-style: none;
+}
+
+.file-list li {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 6px 0;
+    border-top: 1px solid var(--border);
+}
+
+.file-timer-name {
+    flex-shrink: 0;
+    min-width: 70px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.file-path {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    word-break: break-all;
+    user-select: text;
+}
+
+.inline-path {
+    font-family: var(--font-mono);
+    word-break: break-all;
+    user-select: text;
+}
+
+.form-helper-warn {
+    color: var(--amber);
+    font-style: normal;
+}
+
+/* === Scrollbars === */
+/* The default light scrollbar reads as a bright seam against the dark UI. */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}

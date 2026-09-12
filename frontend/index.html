@@ -22,10 +22,23 @@
 
         <footer class="footer-bar">
             <button class="btn-icon" id="btn-logs" title="View Logs">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
                     <path d="M2 2h12v2H2V2zm0 4h12v2H2V6zm0 4h8v2H2v-2z"/>
                 </svg>
                 Logs
+            </button>
+            <button class="btn-icon" id="btn-settings" title="Settings">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                    <path d="M8 5.5a2.5 2.5 0 100 5 2.5 2.5 0 000-5zm-1.5 2.5a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0z"/>
+                    <path d="M6.94 1.5a1.2 1.2 0 012.12 0l.33.6a1.2 1.2 0 001.35.57l.66-.17a1.2 1.2 0 011.45 1.45l-.17.66a1.2 1.2 0 00.57 1.35l.6.33a1.2 1.2 0 010 2.12l-.6.33a1.2 1.2 0 00-.57 1.35l.17.66a1.2 1.2 0 01-1.45 1.45l-.66-.17a1.2 1.2 0 00-1.35.57l-.33.6a1.2 1.2 0 01-2.12 0l-.33-.6a1.2 1.2 0 00-1.35-.57l-.66.17a1.2 1.2 0 01-1.45-1.45l.17-.66a1.2 1.2 0 00-.57-1.35l-.6-.33a1.2 1.2 0 010-2.12l.6-.33a1.2 1.2 0 00.57-1.35l-.17-.66A1.2 1.2 0 013.6 2.5l.66.17a1.2 1.2 0 001.35-.57l.33-.6z"/>
+                </svg>
+                Settings
+            </button>
+            <button class="btn-icon footer-output" id="btn-footer-output" title="Timer output folder">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                    <path d="M1.5 3.5A1.5 1.5 0 013 2h3.086a1.5 1.5 0 011.06.44L8.208 3.5H13a1.5 1.5 0 011.5 1.5v7A1.5 1.5 0 0113 13.5H3A1.5 1.5 0 011.5 12v-8.5z"/>
+                </svg>
+                <span id="footer-output-text">Loading...</span>
             </button>
         </footer>
     </div>
@@ -83,18 +96,63 @@
                     <input type="text" id="edit-trigger-action" placeholder="None">
                 </div>
                 <div class="form-group">
-                    <label for="edit-output-file">Output File</label>
-                    <div class="input-with-button">
-                        <input type="text" id="edit-output-file" readonly>
-                        <button type="button" class="btn-secondary" id="btn-browse-output">Browse...</button>
-                    </div>
-                    <small class="form-helper" id="output-file-error" style="display:none; color:#ff6b6b;"></small>
+                    <label for="edit-output-file">Output Filename</label>
+                    <input type="text" id="edit-output-file" maxlength="64">
+                    <small class="form-helper">Writes to: <span id="output-file-path" class="inline-path"></span></small>
+                    <small class="form-helper form-helper-warn" id="output-file-error" style="display:none;"></small>
                 </div>
                 <div class="form-actions">
                     <button type="submit" class="btn-primary">Save</button>
                     <button type="button" class="btn-secondary" id="btn-cancel-edit">Cancel</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settings-modal" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <button class="btn-close" id="btn-close-settings">&times;</button>
+            </div>
+            <div class="settings-body">
+                <section class="settings-section">
+                    <h3>Timer Output Folder</h3>
+                    <p class="settings-hint">Point your OBS text sources at the files below.</p>
+                    <div class="path-display" id="settings-output-dir"></div>
+
+                    <div class="notice notice-warn" id="output-fallback-warning" style="display:none;">
+                        <strong>Warning:</strong>
+                        <span id="output-fallback-text"></span>
+                    </div>
+
+                    <div class="settings-actions">
+                        <button type="button" class="btn-secondary" id="btn-open-output">Open Folder</button>
+                        <button type="button" class="btn-secondary" id="btn-change-output">Change Folder...</button>
+                    </div>
+
+                    <div class="notice notice-confirm" id="change-confirm" style="display:none;">
+                        <p>The four timer files will be created in the folder you choose. Your OBS text sources
+                           will keep reading the old location until you re-point them.</p>
+                        <div class="settings-actions">
+                            <button type="button" class="btn-primary" id="btn-confirm-change">Choose Folder...</button>
+                            <button type="button" class="btn-secondary" id="btn-cancel-change">Cancel</button>
+                        </div>
+                    </div>
+
+                    <ul class="file-list" id="settings-file-list"></ul>
+                </section>
+
+                <section class="settings-section">
+                    <h3>Log Folder</h3>
+                    <p class="settings-hint">Diagnostic logs only — OBS does not read these. Stays with the app.</p>
+                    <div class="path-display" id="settings-log-dir"></div>
+                    <div class="settings-actions">
+                        <button type="button" class="btn-secondary" id="btn-open-log-dir">Open Folder</button>
+                    </div>
+                </section>
+            </div>
         </div>
     </div>
 
