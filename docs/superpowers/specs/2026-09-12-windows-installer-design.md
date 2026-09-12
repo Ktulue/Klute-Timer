@@ -128,11 +128,11 @@ Imports `__version__` and `version_tuple` from `src.version` and passes a `PyIns
 - `[Icons]`: `{autoprograms}\Klute Timer` always; `{autodesktop}\Klute Timer` when `desktopicon`. Both are named `Klute Timer.lnk`, so the installer replaces the shortcut `create_shortcut.ps1` used to make.
 - `[Run]`: launch `{app}\KluteTimer.exe`, `postinstall nowait skipifsilent`, "Launch Klute Timer".
 - `[UninstallDelete]`: `Type: filesandordirs; Name: "{app}"`.
-- `[Code]`: in `CurUninstallStepChanged(usUninstall)`, if not `UninstallSilent`, show `MsgBox(..., mbConfirmation, MB_YESNO or MB_DEFBUTTON2)`; on `IDYES`, `DelTree(ExpandConstant('{userappdata}\KluteTimer'), True, True, True)`. Message text:
+- `[Code]`: in `CurUninstallStepChanged(usUninstall)`, if not `UninstallSilent` and the data folder exists, show `MsgBox(..., mbConfirmation, MB_YESNO or MB_DEFBUTTON2)`; on `IDYES`, `DelTree(ExpandConstant('{userappdata}\KluteTimer'), True, True, True)`. If there is no data folder there is nothing to ask about, so no prompt. The message shows the expanded path (for example `C:\Users\<name>\AppData\Roaming\KluteTimer`) so the user sees exactly what would be deleted:
 
   > Also delete your Klute Timer settings, presets, logs, and timer text files?
   >
-  > %APPDATA%\KluteTimer
+  > C:\Users\<name>\AppData\Roaming\KluteTimer
   >
   > Choose No to keep them for a future reinstall. A custom output folder you chose somewhere else is never deleted.
 
