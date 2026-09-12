@@ -53,13 +53,13 @@ Notes:
 - The build is a one-folder bundle: `dist\KluteTimer\KluteTimer.exe` plus an
   `_internal\` folder. **Keep them together** — the shortcut points at the exe,
   so you never interact with `_internal\` directly.
-- `config.json`, `output\`, `logs\`, and `sounds\` live **next to the exe** in
-  `dist\KluteTimer\`, so presets stay editable and OBS can read the output files.
-- Rebuilding recreates `dist\KluteTimer\`, resetting its `config.json` to the
-  repo default. Back up a customized config before rebuilding.
-- Because a rebuild wipes `dist\`, point OBS at an output folder **outside** it —
-  set one via **Settings > Change Folder...** — or copy `dist\KluteTimer\` to a
-  permanent install location and run it from there.
+- **Nothing you own lives in `dist\KluteTimer\`.** Your settings, logs, and the
+  default output folder live in `%APPDATA%\KluteTimer\` instead, so rebuilding
+  is always safe. Rebuilding a previous version used to delete `config.json` and
+  silently send the output files back to their default folder, which left OBS
+  reading a file nothing was updating any more.
+- The first build after this change carries a `config.json` still sitting beside
+  the exe over to `%APPDATA%\KluteTimer\`. It never overwrites one already there.
 - The app icon is generated from `scripts\make_icon.py` (committed as
   `assets\KluteTimer.ico`); rerun it only if you change the icon design.
 
@@ -100,6 +100,35 @@ absolute path, so rebuilding or moving the app won't relocate your files.
 
 The output folder is also shown in the footer at all times, so you always know
 where the app is writing.
+
+## Where your files live
+
+Everything you own lives in one folder, `%APPDATA%\KluteTimer\`. Paste that
+into the Windows Explorer address bar to open it.
+
+| What | Where |
+| --- | --- |
+| Settings | `%APPDATA%\KluteTimer\config.json` |
+| Logs | `%APPDATA%\KluteTimer\logs\` |
+| Timer text files, by default | `%APPDATA%\KluteTimer\output\` |
+
+The output folder is the one OBS reads, and it is the one you can move. Use
+**Settings > Change Folder...** to send the four `.txt` files somewhere more
+convenient, such as `C:\Streaming\Overlays\`, and **Reset to Default** to send
+them back. Either way the settings panel shows the full path of every file, with
+a **Copy Path** button for pasting into the OBS file picker. Re-point your OBS
+text sources afterwards, because moving the files does not move OBS with them.
+
+The app folder itself, `dist\KluteTimer\`, holds only the program. You can
+delete and rebuild it without losing anything.
+
+### Removing Klute Timer
+
+There is no installer yet, so the app does not appear in Windows Settings under
+Apps and Installed apps. To remove it completely, delete both:
+
+1. The app folder, `dist\KluteTimer\`, or wherever you copied it.
+2. Your data folder, `%APPDATA%\KluteTimer\`.
 
 ## Configuration
 

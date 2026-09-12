@@ -29,7 +29,7 @@ def api_factory(tmp_path, monkeypatch):
     """Builds an Api rooted at tmp_path, with the WebSocket client stubbed out."""
 
     def _build(output_dir=None, presets=None):
-        monkeypatch.setattr("src.app.BASE_DIR", str(tmp_path))
+        monkeypatch.setattr("src.app.DATA_DIR", str(tmp_path))
         _write_config(tmp_path, output_dir=output_dir, presets=presets)
         with patch("src.app.StreamerbotClient"):
             return Api()

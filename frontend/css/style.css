@@ -495,6 +495,37 @@ select {
     color: var(--text-secondary);
 }
 
+/* Whether the folder is the app default or one the user picked. Stated in
+   words, not colour alone, so it reads the same to a colour-blind user. */
+.path-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.path-badge {
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--text-secondary);
+    background: var(--gray-dim);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.path-badge.custom {
+    color: var(--teal);
+    background: var(--teal-dim);
+    border-color: var(--teal);
+}
+
+.settings-actions button:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
 /* Paths are selectable so they can be pasted straight into OBS. */
 .path-display {
     margin-top: 8px;

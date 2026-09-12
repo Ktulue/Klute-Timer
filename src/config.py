@@ -68,10 +68,9 @@ class Config:
     def __init__(self, config_path: str = "config.json"):
         self._path = config_path
         # Timer output files default to an "output" folder beside config.json,
-        # which puts them next to the executable in a frozen build. Stored as an
-        # absolute path so the user can read it straight out of the settings
-        # panel, and so rebuilding or moving the app never silently relocates
-        # the files OBS is reading.
+        # which puts them in the user data directory rather than the app folder
+        # a rebuild deletes. Stored as an absolute path so the user can read it
+        # straight out of the settings panel.
         self._default_output_dir = os.path.abspath(
             os.path.join(os.path.dirname(config_path) or ".", "output")
         )
@@ -88,6 +87,11 @@ class Config:
         else:
             self._set_defaults()
             self.save()
+
+    @property
+    def default_output_dir(self) -> str:
+        """Where timer files go until the user chooses somewhere else."""
+        return self._default_output_dir
 
     def _set_defaults(self) -> None:
         self.ws_host = "127.0.0.1"

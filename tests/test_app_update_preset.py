@@ -7,7 +7,7 @@ from src.app import Api
 
 @pytest.fixture
 def configured_api(tmp_path, monkeypatch):
-    monkeypatch.setattr("src.app.BASE_DIR", str(tmp_path))
+    monkeypatch.setattr("src.app.DATA_DIR", str(tmp_path))
     config_data = {
         "websocket": {"host": "127.0.0.1", "port": 8059, "auth": None},
         "default_finished_sound": None,

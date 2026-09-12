@@ -119,7 +119,12 @@
             <div class="settings-body">
                 <section class="settings-section">
                     <h3>Timer Output Folder</h3>
-                    <p class="settings-hint">Point your OBS text sources at the files below.</p>
+                    <p class="settings-hint">OBS reads the four text files listed below.
+                       Point one text source at each file.</p>
+
+                    <div class="path-header">
+                        <span class="path-badge" id="output-dir-badge">Default location</span>
+                    </div>
                     <div class="path-display" id="settings-output-dir"></div>
 
                     <div class="notice notice-warn" id="output-fallback-warning" style="display:none;">
@@ -129,12 +134,13 @@
 
                     <div class="settings-actions">
                         <button type="button" class="btn-secondary" id="btn-open-output">Open Folder</button>
+                        <button type="button" class="btn-secondary" id="btn-copy-output">Copy Path</button>
                         <button type="button" class="btn-secondary" id="btn-change-output">Change Folder...</button>
+                        <button type="button" class="btn-secondary" id="btn-reset-output">Reset to Default</button>
                     </div>
 
                     <div class="notice notice-confirm" id="change-confirm" style="display:none;">
-                        <p>The four timer files will be created in the folder you choose. Your OBS text sources
-                           will keep reading the old location until you re-point them.</p>
+                        <p id="change-confirm-text"></p>
                         <div class="settings-actions">
                             <button type="button" class="btn-primary" id="btn-confirm-change">Choose Folder...</button>
                             <button type="button" class="btn-secondary" id="btn-cancel-change">Cancel</button>
@@ -146,7 +152,8 @@
 
                 <section class="settings-section">
                     <h3>Log Folder</h3>
-                    <p class="settings-hint">Diagnostic logs only — OBS does not read these. Stays with the app.</p>
+                    <p class="settings-hint">Diagnostic logs only. OBS does not read these.
+                       They live with your settings, so rebuilding or updating the app never clears them.</p>
                     <div class="path-display" id="settings-log-dir"></div>
                     <div class="settings-actions">
                         <button type="button" class="btn-secondary" id="btn-open-log-dir">Open Folder</button>
