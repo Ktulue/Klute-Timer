@@ -19,6 +19,9 @@ window.addEventListener('pywebviewready', async () => {
     updateWsStatus(state.ws_status);
     setupEventListeners();
     await refreshPaths();
+
+    const version = await pywebview.api.get_version();
+    document.getElementById('settings-version').textContent = `Klute Timer v${version}`;
 });
 
 // --- Rendering ---
