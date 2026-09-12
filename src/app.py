@@ -9,7 +9,7 @@ from typing import Optional
 import pystray
 from PIL import Image, ImageDraw
 
-from src.config import Config
+from src.config import Config, filename_only
 from src.timer import Timer
 from src.file_writer import FileWriter
 from src.sound_player import SoundPlayer
@@ -61,9 +61,53 @@ class Api:
     def set_window(self, window: webview.Window) -> None:
         self._window = window
 
-    def _init_timers(self) -> None:
+    def _resolve_output_dir(self) -> str:
+        """The directory timer files are actually written to.
+
+        Falls back to <BASE_DIR>/output when the configured directory can't be
+        used — an unplugged drive or a revoked permission must not take the app
+        down mid-stream. The fallback is deliberately not written back to the
+        config: the stored path is the user's intent, and it may well be valid
+        again next launch.
+        """
+        configured = self._config.output_dir
+        try:
+            os.makedirs(configured, exist_ok=True)
+            if os.access(configured, os.W_OK):
+                return configured
+            reason = "not writable"
+        except OSError as e:
+            reason = str(e)
+
+        fallback = os.path.join(BASE_DIR, "output")
+        log.warning(
+            f"configured output folder unusable ({reason}); using {fallback}",
+            extra={"context": "resolve_output_dir", "state": f"configured={configured}"},
+        )
+        os.makedirs(fallback, exist_ok=True)
+        return fallback
+
+    def _output_path(self, timer_id: int) -> str:
+        preset = self._config.presets[timer_id]
+        return os.path.join(self._resolve_output_dir(), preset.output_file)
+
+    def _register_all_outputs(self) -> None:
+        """Point every timer at its file and make sure that file exists.
+
+        The empty write is what actually creates the file on disk, so OBS can be
+        aimed at it before the timer has ever run. It also wipes any stale value
+        a crash or a kill left behind on the last run.
+        """
+        # Resolved once rather than per preset, so an unusable folder warns a
+        # single time instead of once per timer.
+        output_dir = self._resolve_output_dir()
         for i, preset in enumerate(self._config.presets):
-            self._file_writer.register(i, os.path.join(BASE_DIR, preset.output_file))
+            self._file_writer.register(i, os.path.join(output_dir, preset.output_file))
+            self._file_writer.clear(i)
+
+    def _init_timers(self) -> None:
+        self._register_all_outputs()
+        for i, preset in enumerate(self._config.presets):
             timer = Timer(
                 timer_id=i,
                 duration=preset.duration,
@@ -205,8 +249,26 @@ class Api:
                 )
                 updates = {k: v for k, v in updates.items() if k != "end_message"}
 
+            # Two presets sharing one file would have them overwrite each other,
+            # so reject the rename before it reaches the config rather than
+            # letting FileWriter.register raise across the JS bridge.
+            if "output_file" in updates:
+                requested = filename_only(updates["output_file"])
+                taken = {
+                    p.output_file
+                    for i, p in enumerate(self._config.presets)
+                    if i != timer_id
+                }
+                if requested in taken:
+                    log.warning(
+                        f"output filename '{requested}' is already used by another timer; ignoring",
+                        extra={"context": "update_preset", "state": f"timer_id={timer_id}"},
+                    )
+                    updates = {k: v for k, v in updates.items() if k != "output_file"}
+                else:
+                    updates = {**updates, "output_file": requested}
+
             self._config.update_preset(timer_id, updates)
-            preset = self._config.presets[timer_id]
             timer = self._timers[timer_id]
 
             # Update live timer trigger config
@@ -215,95 +277,106 @@ class Api:
             if "trigger_action" in updates:
                 timer._trigger_action = updates["trigger_action"]
 
-            # Re-register file writer if output path changed
+            # Re-register file writer if the output filename changed
             if "output_file" in updates:
-                self._file_writer.register(
-                    timer_id, os.path.join(BASE_DIR, preset.output_file)
-                )
+                self._file_writer.register(timer_id, self._output_path(timer_id))
+                self._file_writer.clear(timer_id)
 
             self._push_timer_update(timer_id)
 
-    def pick_output_file(self, timer_id: int) -> Optional[str]:
-        """Open a native Save-dialog file picker for the given preset's output file.
-
-        Returns the chosen path on success, None on cancel or validation failure.
-        Validation failures are logged at WARNING level so the user can check
-        logs for the specific reason.
-        """
-        if not (0 <= timer_id < len(self._config.presets)):
-            log.warning(
-                f"pick_output_file: invalid timer_id {timer_id}",
-                extra={"context": "pick_output_file", "state": f"num_presets={len(self._config.presets)}"},
-            )
-            return None
-
-        if not self._window:
-            log.warning(
-                "pick_output_file: window not initialized",
-                extra={"context": "pick_output_file", "state": "no window"},
-            )
-            return None
-
-        # Open the native save dialog
-        result = self._window.create_file_dialog(
-            webview.SAVE_DIALOG,
-            file_types=("Text Files (*.txt)", "All files (*.*)"),
-            save_filename="timer_output.txt",
-        )
-
-        if not result:
-            # User cancelled
-            return None
-
-        # create_file_dialog returns a tuple/list — take the first entry
-        chosen_path = result[0] if isinstance(result, (list, tuple)) else result
-        if not chosen_path:
-            # Defensive: treat empty path as cancel even though no shipping
-            # pywebview backend produces this. Avoids a silent fallback to
-            # os.getcwd() in os.path.abspath('').
-            return None
-        normalized = os.path.normpath(os.path.abspath(chosen_path))
-
-        # Validate: parent dir must exist and be writable
-        parent_dir = os.path.dirname(normalized)
-        if not os.path.isdir(parent_dir):
-            log.warning(
-                f"pick_output_file: parent directory does not exist: {parent_dir}",
-                extra={"context": "pick_output_file", "state": f"path={normalized}"},
-            )
-            return None
-
-        if not os.access(parent_dir, os.W_OK):
-            log.warning(
-                f"pick_output_file: parent directory not writable: {parent_dir}",
-                extra={"context": "pick_output_file", "state": f"path={normalized}"},
-            )
-            return None
-
-        # Check for collision with another preset's output_file
-        for i, p in enumerate(self._config.presets):
-            if i == timer_id:
-                continue
-            other = os.path.normpath(os.path.abspath(os.path.join(BASE_DIR, p.output_file)))
-            if other == normalized:
-                log.warning(
-                    f"pick_output_file: path already used by preset {i} ({p.name})",
-                    extra={"context": "pick_output_file", "state": f"path={normalized}"},
-                )
-                return None
-
-        # All validation passed — apply the update via update_preset
-        # (which handles file_writer re-registration)
-        self.update_preset(timer_id, {"output_file": normalized})
-
-        log.info(
-            f"pick_output_file: timer {timer_id} output set to {normalized}",
-            extra={"context": "pick_output_file", "state": "success"},
-        )
-        return normalized
-
     def get_presets(self) -> list[dict]:
         return [p.to_dict() for p in self._config.presets]
+
+    def get_paths(self) -> dict:
+        """Every location the app reads or writes, for the settings panel.
+
+        Reports where files are actually going, not merely what the config
+        requested, so a fallback is visible rather than a mystery.
+        """
+        output_dir = self._resolve_output_dir()
+        return {
+            "output_dir": output_dir,
+            "configured_output_dir": self._config.output_dir,
+            "using_fallback": output_dir != self._config.output_dir,
+            "log_dir": os.path.join(BASE_DIR, "logs"),
+            "files": [
+                {
+                    "name": preset.name,
+                    "filename": preset.output_file,
+                    "path": os.path.join(output_dir, preset.output_file),
+                }
+                for preset in self._config.presets
+            ],
+        }
+
+    def pick_output_dir(self) -> Optional[dict]:
+        """Open a native folder picker for the shared timer output folder.
+
+        Returns the updated paths on success, None on cancel or if the chosen
+        folder can't be written to.
+        """
+        if not self._window:
+            log.warning(
+                "pick_output_dir: window not initialized",
+                extra={"context": "pick_output_dir", "state": "no window"},
+            )
+            return None
+
+        result = self._window.create_file_dialog(webview.FOLDER_DIALOG)
+        if not result:
+            return None
+
+        chosen = result[0] if isinstance(result, (list, tuple)) else result
+        if not chosen:
+            return None
+        normalized = os.path.normpath(os.path.abspath(chosen))
+
+        try:
+            os.makedirs(normalized, exist_ok=True)
+        except OSError as e:
+            log.warning(
+                f"pick_output_dir: cannot create {normalized}: {e}",
+                extra={"context": "pick_output_dir", "state": "makedirs failed"},
+            )
+            return None
+
+        if not os.access(normalized, os.W_OK):
+            log.warning(
+                f"pick_output_dir: folder not writable: {normalized}",
+                extra={"context": "pick_output_dir", "state": "not writable"},
+            )
+            return None
+
+        self._config.output_dir = normalized
+        self._config.save()
+        # Files at the old location are deliberately left alone rather than
+        # moved: OBS may still be reading them, and silently relocating a source
+        # out from under it is worse than leaving a stray file behind.
+        self._register_all_outputs()
+
+        log.info(
+            f"output folder changed to {normalized}",
+            extra={"context": "pick_output_dir", "state": "success"},
+        )
+        return self.get_paths()
+
+    def open_output_dir(self) -> bool:
+        return self._open_folder(self._resolve_output_dir())
+
+    def open_log_dir(self) -> bool:
+        return self._open_folder(os.path.join(BASE_DIR, "logs"))
+
+    def _open_folder(self, path: str) -> bool:
+        try:
+            os.makedirs(path, exist_ok=True)
+            os.startfile(path)
+            return True
+        except OSError as e:
+            log.error(
+                f"failed to open folder {path}: {e}",
+                extra={"context": "open_folder", "state": f"path={path}"},
+            )
+            return False
 
     def get_logs(self, severity: str = "INFO", count: int = 50) -> list[str]:
         log_path = os.path.join(BASE_DIR, "logs", "klute-timer.log")

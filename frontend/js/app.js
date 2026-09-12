@@ -2,6 +2,7 @@
 
 let timers = [];
 let presets = [];
+let paths = { output_dir: '', log_dir: '', files: [], using_fallback: false };
 
 // --- Initialization ---
 
@@ -13,6 +14,7 @@ window.addEventListener('pywebviewready', async () => {
     renderTimerCards();
     updateWsStatus(state.ws_status);
     setupEventListeners();
+    await refreshPaths();
 });
 
 // --- Rendering ---
@@ -135,22 +137,38 @@ function setupEventListeners() {
         if (e.target === e.currentTarget) closeEditModal();
     });
 
-    // Browse button for output file
-    document.getElementById('btn-browse-output').addEventListener('click', async () => {
-        const timerId = parseInt(document.getElementById('edit-timer-id').value);
-        const errorEl = document.getElementById('output-file-error');
-        errorEl.style.display = 'none';
+    // Live preview of where the edited filename will actually be written
+    document.getElementById('edit-output-file').addEventListener('input', updateOutputPathPreview);
 
-        const result = await pywebview.api.pick_output_file(timerId);
+    // Settings modal
+    document.getElementById('btn-settings').addEventListener('click', openSettings);
+    document.getElementById('btn-footer-output').addEventListener('click', openSettings);
+    document.getElementById('btn-close-settings').addEventListener('click', closeSettings);
+    document.getElementById('settings-modal').addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closeSettings();
+    });
+    document.getElementById('btn-open-output').addEventListener('click', () => {
+        pywebview.api.open_output_dir();
+    });
+    document.getElementById('btn-open-log-dir').addEventListener('click', () => {
+        pywebview.api.open_log_dir();
+    });
+
+    // Changing the output folder is confirmed inline rather than with a native
+    // confirm(), which is unreliable across pywebview backends.
+    document.getElementById('btn-change-output').addEventListener('click', () => {
+        document.getElementById('change-confirm').style.display = 'block';
+        document.getElementById('btn-confirm-change').focus();
+    });
+    document.getElementById('btn-cancel-change').addEventListener('click', () => {
+        document.getElementById('change-confirm').style.display = 'none';
+    });
+    document.getElementById('btn-confirm-change').addEventListener('click', async () => {
+        document.getElementById('change-confirm').style.display = 'none';
+        const result = await pywebview.api.pick_output_dir();
         if (result) {
-            document.getElementById('edit-output-file').value = result;
-            // Update local presets cache so subsequent edits show the new path
-            presets[timerId].output_file = result;
-        } else {
-            // null = user cancelled OR validation failed.
-            // We can't distinguish — show a non-alarming message and point at logs.
-            errorEl.textContent = 'No file selected, or selection rejected. Check the Logs panel for details.';
-            errorEl.style.display = 'block';
+            paths = result;
+            renderPaths();
         }
     });
 
@@ -159,8 +177,72 @@ function setupEventListeners() {
         if (e.key === 'Escape') {
             closeLogViewer();
             closeEditModal();
+            closeSettings();
         }
     });
+}
+
+// --- Paths / Settings ---
+
+async function refreshPaths() {
+    paths = await pywebview.api.get_paths();
+    renderPaths();
+}
+
+function renderPaths() {
+    document.getElementById('footer-output-text').textContent = shortenPath(paths.output_dir);
+    document.getElementById('btn-footer-output').title = `Timer output folder: ${paths.output_dir}`;
+
+    document.getElementById('settings-output-dir').textContent = paths.output_dir;
+    document.getElementById('settings-log-dir').textContent = paths.log_dir;
+
+    const warning = document.getElementById('output-fallback-warning');
+    if (paths.using_fallback) {
+        document.getElementById('output-fallback-text').textContent =
+            `The folder you chose (${paths.configured_output_dir}) could not be used, ` +
+            `so files are being written to the location above instead.`;
+        warning.style.display = 'block';
+    } else {
+        warning.style.display = 'none';
+    }
+
+    const list = document.getElementById('settings-file-list');
+    list.innerHTML = '';
+    paths.files.forEach((file) => {
+        const li = document.createElement('li');
+        const name = document.createElement('span');
+        name.className = 'file-timer-name';
+        name.textContent = file.name;
+        const path = document.createElement('code');
+        path.className = 'file-path';
+        path.textContent = file.path;
+        li.append(name, path);
+        list.appendChild(li);
+    });
+}
+
+async function openSettings() {
+    document.getElementById('change-confirm').style.display = 'none';
+    await refreshPaths();
+    document.getElementById('settings-modal').style.display = 'flex';
+}
+
+function closeSettings() {
+    document.getElementById('settings-modal').style.display = 'none';
+}
+
+function shortenPath(path) {
+    // Keep the last two segments — enough to recognise the folder at a glance
+    // without letting a deep path swallow the footer.
+    const parts = path.split(/[\\/]/).filter(Boolean);
+    if (parts.length <= 2) return path;
+    return `...\\${parts.slice(-2).join('\\')}`;
+}
+
+function updateOutputPathPreview() {
+    const filename = document.getElementById('edit-output-file').value.trim();
+    const preview = document.getElementById('output-file-path');
+    preview.textContent = filename ? `${paths.output_dir}\\${filename}` : paths.output_dir;
 }
 
 // --- Log Viewer ---
@@ -192,6 +274,7 @@ function openEditModal(timerId) {
     document.getElementById('edit-trigger-action').value = preset.trigger_action || '';
     document.getElementById('edit-output-file').value = preset.output_file;
     document.getElementById('output-file-error').style.display = 'none';
+    updateOutputPathPreview();
     document.getElementById('edit-modal').style.display = 'flex';
 }
 
@@ -214,11 +297,27 @@ async function savePreset(e) {
     };
 
     await pywebview.api.update_preset(timerId, updates);
-    presets[timerId] = { ...presets[timerId], ...updates };
+
+    // Re-read from the backend rather than trusting the local copy: a filename
+    // already taken by another timer is rejected there, and the form must show
+    // what was actually stored.
+    presets = await pywebview.api.get_presets();
+    const requested = updates.output_file.trim();
+    if (requested && presets[timerId].output_file !== requested) {
+        const errorEl = document.getElementById('output-file-error');
+        errorEl.textContent =
+            `"${requested}" is already used by another timer. Filename left unchanged.`;
+        errorEl.style.display = 'block';
+        document.getElementById('edit-output-file').value = presets[timerId].output_file;
+        updateOutputPathPreview();
+        return;
+    }
+
     // Re-render so the Start button reflects the new duration
     const updatedState = await pywebview.api.get_state();
     timers = updatedState.timers;
     renderTimerCards();
+    await refreshPaths();
     closeEditModal();
 }
 

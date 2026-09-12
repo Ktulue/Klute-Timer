@@ -4,6 +4,16 @@ from dataclasses import dataclass, field, asdict
 from typing import Optional
 
 
+def filename_only(path: str) -> str:
+    """Reduce a stored output path to its bare filename.
+
+    Timer output files used to carry a full path each; they now live together
+    in Config.output_dir and store only a filename. Both separators are handled
+    so a config written before that change migrates cleanly.
+    """
+    return path.replace("\\", "/").rsplit("/", 1)[-1]
+
+
 @dataclass
 class PresetConfig:
     name: str
@@ -25,7 +35,7 @@ DEFAULT_PRESETS = [
         end_message="",
         trigger_seconds=30,
         trigger_action="Push The Button Reminder",
-        output_file="output/socials.txt",
+        output_file="socials.txt",
     ),
     PresetConfig(
         name="Intro",
@@ -33,7 +43,7 @@ DEFAULT_PRESETS = [
         end_message="",
         trigger_seconds=None,
         trigger_action=None,
-        output_file="output/intro.txt",
+        output_file="intro.txt",
     ),
     PresetConfig(
         name="Break",
@@ -41,7 +51,7 @@ DEFAULT_PRESETS = [
         end_message="",
         trigger_seconds=None,
         trigger_action=None,
-        output_file="output/break.txt",
+        output_file="break.txt",
     ),
     PresetConfig(
         name="Custom",
@@ -49,7 +59,7 @@ DEFAULT_PRESETS = [
         end_message="",
         trigger_seconds=None,
         trigger_action=None,
-        output_file="output/custom.txt",
+        output_file="custom.txt",
     ),
 ]
 
@@ -57,10 +67,19 @@ DEFAULT_PRESETS = [
 class Config:
     def __init__(self, config_path: str = "config.json"):
         self._path = config_path
+        # Timer output files default to an "output" folder beside config.json,
+        # which puts them next to the executable in a frozen build. Stored as an
+        # absolute path so the user can read it straight out of the settings
+        # panel, and so rebuilding or moving the app never silently relocates
+        # the files OBS is reading.
+        self._default_output_dir = os.path.abspath(
+            os.path.join(os.path.dirname(config_path) or ".", "output")
+        )
         self.ws_host: str = "127.0.0.1"
         self.ws_port: int = 8059
         self.ws_auth: Optional[str] = None
         self.default_finished_sound: Optional[str] = None
+        self.output_dir: str = self._default_output_dir
         self.presets: list[PresetConfig] = []
         self.minimize_to_tray: bool = True
 
@@ -75,6 +94,7 @@ class Config:
         self.ws_port = 8059
         self.ws_auth = None
         self.default_finished_sound = None
+        self.output_dir = self._default_output_dir
         self.presets = [
             PresetConfig(**asdict(p)) for p in DEFAULT_PRESETS
         ]
@@ -91,9 +111,15 @@ class Config:
 
         self.default_finished_sound = data.get("default_finished_sound", None)
 
+        # A config written before output_dir existed has no such key; fall back
+        # to the default rather than leaving it unset.
+        self.output_dir = data.get("output_dir") or self._default_output_dir
+
         self.presets = [
             PresetConfig(**p) for p in data.get("presets", [])
         ]
+        for preset in self.presets:
+            preset.output_file = filename_only(preset.output_file)
 
         window = data.get("window", {})
         self.minimize_to_tray = window.get("minimize_to_tray", True)
@@ -107,6 +133,7 @@ class Config:
                 "auth": self.ws_auth,
             },
             "default_finished_sound": self.default_finished_sound,
+            "output_dir": self.output_dir,
             "presets": [p.to_dict() for p in self.presets],
             "window": {
                 "minimize_to_tray": self.minimize_to_tray,

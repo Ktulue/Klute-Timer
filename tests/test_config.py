@@ -1,4 +1,5 @@
 import json
+import os
 from src.config import Config, PresetConfig, DEFAULT_PRESETS
 
 
@@ -161,3 +162,96 @@ class TestConfigFinishedSound:
 
         config2 = Config(config_path)
         assert config2.default_finished_sound == "sounds/global.wav"
+
+
+class TestOutputDir:
+    def test_defaults_to_output_folder_beside_config(self, tmp_path):
+        config = Config(str(tmp_path / "config.json"))
+        assert config.output_dir == str(tmp_path / "output")
+
+    def test_default_is_an_absolute_path(self, tmp_path):
+        config = Config(str(tmp_path / "config.json"))
+        assert os.path.isabs(config.output_dir)
+
+    def test_default_is_written_to_the_config_file_on_first_run(self, tmp_path):
+        config_path = tmp_path / "config.json"
+        Config(str(config_path))
+        data = json.loads(config_path.read_text())
+        assert data["output_dir"] == str(tmp_path / "output")
+
+    def test_loads_output_dir_from_existing_config(self, tmp_path):
+        config_path = tmp_path / "config.json"
+        chosen = str(tmp_path / "obs-files")
+        data = {
+            "websocket": {"host": "127.0.0.1", "port": 8059, "auth": None},
+            "output_dir": chosen,
+            "presets": [],
+            "window": {"minimize_to_tray": True},
+        }
+        config_path.write_text(json.dumps(data))
+        config = Config(str(config_path))
+        assert config.output_dir == chosen
+
+    def test_legacy_config_without_output_dir_gets_the_default(self, tmp_path):
+        config_path = tmp_path / "config.json"
+        data = {
+            "websocket": {"host": "127.0.0.1", "port": 8059, "auth": None},
+            "presets": [],
+            "window": {"minimize_to_tray": True},
+        }
+        config_path.write_text(json.dumps(data))
+        config = Config(str(config_path))
+        assert config.output_dir == str(tmp_path / "output")
+
+    def test_output_dir_round_trips_through_save(self, tmp_path):
+        config_path = str(tmp_path / "config.json")
+        config = Config(config_path)
+        config.output_dir = str(tmp_path / "elsewhere")
+        config.save()
+
+        config2 = Config(config_path)
+        assert config2.output_dir == str(tmp_path / "elsewhere")
+
+
+class TestOutputFileMigration:
+    def test_default_presets_use_bare_filenames(self):
+        for preset in DEFAULT_PRESETS:
+            assert os.sep not in preset.output_file
+            assert "/" not in preset.output_file
+
+    def test_relative_path_is_reduced_to_its_filename(self, tmp_path):
+        config_path = tmp_path / "config.json"
+        data = {
+            "presets": [
+                {"name": "Socials", "duration": 120, "output_file": "output/socials.txt"}
+            ],
+        }
+        config_path.write_text(json.dumps(data))
+        config = Config(str(config_path))
+        assert config.presets[0].output_file == "socials.txt"
+
+    def test_absolute_path_is_reduced_to_its_filename(self, tmp_path):
+        config_path = tmp_path / "config.json"
+        data = {
+            "presets": [
+                {
+                    "name": "Socials",
+                    "duration": 120,
+                    "output_file": "C:\\Streaming\\Overlays\\socials.txt",
+                }
+            ],
+        }
+        config_path.write_text(json.dumps(data))
+        config = Config(str(config_path))
+        assert config.presets[0].output_file == "socials.txt"
+
+    def test_bare_filename_is_left_alone(self, tmp_path):
+        config_path = tmp_path / "config.json"
+        data = {
+            "presets": [
+                {"name": "Socials", "duration": 120, "output_file": "socials.txt"}
+            ],
+        }
+        config_path.write_text(json.dumps(data))
+        config = Config(str(config_path))
+        assert config.presets[0].output_file == "socials.txt"
