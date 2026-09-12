@@ -78,9 +78,13 @@ class TestInstallerScript:
         )
 
     def test_data_prompt_defaults_to_keep_and_skips_silent_uninstall(self):
-        code = _read(*self.ISS).split("[Code]", 1)[1]
-        assert "UninstallSilent" in code
-        assert "MB_DEFBUTTON2" in code
+        iss = _read(*self.ISS)
+        parts = re.split(r"^\[Code\]\s*$", iss, maxsplit=1, flags=re.MULTILINE)
+        assert len(parts) == 2, "[Code] section missing from KluteTimer.iss"
+        code = parts[1]
+        assert "not UninstallSilent" in code
+        assert "MB_YESNO or MB_DEFBUTTON2" in code
         assert r"{userappdata}\KluteTimer" in code
+        assert "DirExists" in code
         assert "DelTree" in code
-        assert "IDYES" in code
+        assert "= IDYES" in code
