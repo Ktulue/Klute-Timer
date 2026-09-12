@@ -18,9 +18,10 @@ Stream timer app replacing the defunct Elk Timer. Python desktop GUI with Stream
 1. Get `KluteTimerSetup-<version>.exe`, either from a release or by building it
    yourself (see [Build the installer](#build-the-installer)).
 2. If you previously ran Klute Timer from a copied folder, such as
-   `dist\KluteTimer\`, deal with that copy first. If it predates settings moving
-   to `%APPDATA%\KluteTimer\`, launch it once so its settings carry over. Then
-   quit it from the tray icon before installing.
+   `dist\KluteTimer\`, quit it from the tray icon before installing. If that
+   folder has a `config.json` and `%APPDATA%\KluteTimer\config.json` does not
+   already exist, copy the old `config.json` into `%APPDATA%\KluteTimer\`
+   before your first launch so your presets carry over.
 3. Run the installer. No administrator rights are needed: Klute Timer installs
    for your Windows account only, into `%LOCALAPPDATA%\Programs\KluteTimer\`.
 4. The installer is not code-signed, so Windows SmartScreen may say it

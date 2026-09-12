@@ -311,6 +311,11 @@ class TestBuildScript:
 
 
 class TestReadme:
+    def test_old_copy_guidance_says_copy_config_not_launch(self):
+        readme = " ".join(_read("README.md").split())
+        assert "launch it once" not in readme
+        assert "copy the old `config.json` into `%APPDATA%\\KluteTimer\\`" in readme
+
     def test_no_longer_mentions_the_shortcut_script(self):
         assert "create_shortcut" not in _read("README.md")
 
