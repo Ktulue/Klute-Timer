@@ -53,16 +53,33 @@ Source: "..\dist\KluteTimer\*"; DestDir: "{app}"; Flags: ignoreversion recursesu
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Shortcuts:"
 
 [Icons]
-Name: "{autoprograms}\Klute Timer"; Filename: "{app}\KluteTimer.exe"
-Name: "{autodesktop}\Klute Timer"; Filename: "{app}\KluteTimer.exe"; Tasks: desktopicon
+Name: "{autoprograms}\Klute Timer"; Filename: "{app}\KluteTimer.exe"; WorkingDir: "{app}"
+Name: "{autodesktop}\Klute Timer"; Filename: "{app}\KluteTimer.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\KluteTimer.exe"; Description: "Launch Klute Timer"; Flags: postinstall nowait skipifsilent
 
 [UninstallDelete]
-Type: filesandordirs; Name: "{app}"
+Type: filesandordirs; Name: "{app}"; Check: IsDefaultInstallDir
 
 [Code]
+function IsDefaultInstallDir: Boolean;
+begin
+  Result := CompareText(ExpandConstant('{app}'), ExpandConstant('{autopf}\KluteTimer')) = 0;
+end;
+
+// Setup calls this before it copies a single file. It runs while the app may
+// still be open, so it is where a running Klute Timer must be caught: without
+// it, [InstallDelete] can remove unlocked parts of {app}\_internal out from
+// under a live timer before AppMutex gets another chance to check.
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  if CheckForMutexes('KluteTimer-AppMutex') then
+    Result := 'Klute Timer is running. Close it (including from the tray), then click Back and Next to try again.'
+  else
+    Result := '';
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   DataDir: String;
@@ -76,7 +93,8 @@ begin
                 DataDir + #13#10 + #13#10 +
                 'Choose No to keep them for a future reinstall. A custom output folder you chose somewhere else is never deleted.',
                 mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
-        DelTree(DataDir, True, True, True);
+        if not DelTree(DataDir, True, True, True) then
+          MsgBox('Some files in ' + DataDir + ' could not be deleted, possibly because another program (such as OBS) has them open. You can delete that folder by hand.', mbInformation, MB_OK);
     end;
   end;
 end;

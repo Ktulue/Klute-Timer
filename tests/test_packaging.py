@@ -51,6 +51,22 @@ class TestInstallerScript:
         assert self._directive("AppMutex") == APP_MUTEX_NAME
         assert self._directive("CloseApplications") == "no"
 
+    def test_every_mutex_name_in_the_file_matches(self):
+        iss = _read(*self.ISS)
+        names = re.findall(r"KluteTimer-\w+Mutex", iss)
+        assert len(names) >= 2, "expected the mutex name to appear at least twice (Setup + Code)"
+        for name in names:
+            assert name == APP_MUTEX_NAME
+
+    def test_blocks_install_while_the_app_is_running(self):
+        iss = _read(*self.ISS)
+        parts = re.split(r"^\[Code\]\s*$", iss, maxsplit=1, flags=re.MULTILINE)
+        assert len(parts) == 2, "[Code] section missing from KluteTimer.iss"
+        code = parts[1]
+        assert "function PrepareToInstall" in code
+        assert "CheckForMutexes(" in code
+        assert APP_MUTEX_NAME in code
+
     def test_identity_matches_the_spec(self):
         assert self._directive("AppName") == "Klute Timer"
         assert self._directive("AppPublisher") == "Ktulue"
@@ -77,6 +93,21 @@ class TestInstallerScript:
             re.MULTILINE,
         )
 
+    def test_uninstall_delete_only_runs_for_the_default_install_dir(self):
+        iss = _read(*self.ISS)
+        match = re.search(
+            r'^\[UninstallDelete\]\s*^(Type: filesandordirs; Name: "\{app\}".*)$',
+            iss,
+            re.MULTILINE,
+        )
+        assert match, "[UninstallDelete] entry missing"
+        assert "Check: IsDefaultInstallDir" in match.group(1)
+        parts = re.split(r"^\[Code\]\s*$", iss, maxsplit=1, flags=re.MULTILINE)
+        assert len(parts) == 2, "[Code] section missing from KluteTimer.iss"
+        code = parts[1]
+        assert "function IsDefaultInstallDir: Boolean" in code
+        assert "{autopf}\\KluteTimer" in code
+
     def test_data_prompt_defaults_to_keep_and_skips_silent_uninstall(self):
         iss = _read(*self.ISS)
         parts = re.split(r"^\[Code\]\s*$", iss, maxsplit=1, flags=re.MULTILINE)
@@ -87,7 +118,17 @@ class TestInstallerScript:
         assert r"{userappdata}\KluteTimer" in code
         assert "DirExists" in code
         assert "DelTree" in code
+        assert "not DelTree" in code
         assert "= IDYES" in code
+
+    def test_icons_have_a_working_dir(self):
+        iss = _read(*self.ISS)
+        icons_match = re.search(r"^\[Icons\]\s*$(.*?)^\[", iss, re.MULTILINE | re.DOTALL)
+        assert icons_match, "[Icons] section missing from KluteTimer.iss"
+        icon_lines = [line for line in icons_match.group(1).splitlines() if line.strip()]
+        assert len(icon_lines) == 2
+        for line in icon_lines:
+            assert 'WorkingDir: "{app}"' in line
 
 
 class TestBuildScript:
@@ -122,3 +163,20 @@ class TestReadme:
 
     def test_keeps_the_support_section(self):
         assert "ko-fi.com/ktulue" in _read("README.md")
+
+    def test_volume_mixer_names_klute_timer(self):
+        readme = " ".join(_read("README.md").split())
+        assert "Find the **Klute Timer** entry" in readme
+        assert "(or **Python** when running from source)" in readme
+        assert "When running from source, this controls all Python processes" in readme
+
+    def test_sound_override_note_points_at_appdata(self):
+        readme = " ".join(_read("README.md").split())
+        assert "%APPDATA%\\KluteTimer\\sounds\\" in readme
+        assert "install folder is replaced on upgrade" in readme
+        assert "then set `finished_sound` in `config.json` to point at the amplified copy" not in readme
+
+
+class TestGitAttributes:
+    def test_bat_files_use_crlf_line_endings(self):
+        assert "*.bat text eol=crlf" in _read(".gitattributes").splitlines()
