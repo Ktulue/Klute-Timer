@@ -183,10 +183,18 @@ For the OBS Text (GDI+) source pointing at a Klute-Timer output file: right-clic
 Klute-Timer plays sounds via the Windows audio stack and does not have an in-app volume control. To make alerts louder or quieter:
 
 1. Right-click the speaker icon in your system tray → **Open Volume Mixer**
-2. Find the **Python** entry (it appears after Klute-Timer plays its first sound)
-3. Adjust the slider — the setting usually persists across reboots, but note this controls all Python processes on your machine (any other Python script using audio will share the same slider)
+2. Find the **Klute Timer** entry (or **Python** when running from source) — it
+   appears after Klute-Timer plays its first sound
+3. Adjust the slider — the setting usually persists across reboots. When
+   running from source, this controls all Python processes on your machine
+   (any other Python script using audio will share the same slider)
 
-For per-preset volume control or to amplify a quiet source sound, edit the WAV in Audacity (Effect → Volume and Compression → Normalize, or → Amplify) and save it to `sounds/`, then set `finished_sound` in `config.json` to point at the amplified copy.
+For per-preset volume control or to amplify a quiet source sound, edit the WAV
+in Audacity (Effect → Volume and Compression → Normalize, or → Amplify) and
+save it somewhere of your own, such as `%APPDATA%\KluteTimer\sounds\`, then
+set `finished_sound` in `config.json` to that file's full (absolute) path.
+The install folder is replaced on upgrade, so a copy saved there would not
+survive one.
 
 ### Packaging
 
