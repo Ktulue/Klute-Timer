@@ -6,6 +6,9 @@ replace building and installing: the installed exe is the arbiter.
 import os
 import re
 
+from src.single_instance import APP_MUTEX_NAME
+from src.version import __version__
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -26,3 +29,58 @@ class TestSpec:
     def test_has_no_version_literal(self):
         spec = _read("KluteTimer.spec")
         assert not re.search(r"['\"]\d+\.\d+\.\d+['\"]", spec)
+
+
+class TestInstallerScript:
+    ISS = ("installer", "KluteTimer.iss")
+
+    def _directive(self, name: str) -> str:
+        match = re.search(rf"^\s*{name}=(.*)$", _read(*self.ISS), re.MULTILINE)
+        assert match, f"{name}= missing from KluteTimer.iss"
+        return match.group(1).strip()
+
+    def test_installs_per_user_without_uac(self):
+        assert self._directive("PrivilegesRequired") == "lowest"
+        assert self._directive("DefaultDirName") == r"{autopf}\KluteTimer"
+        assert self._directive("DisableDirPage") == "yes"
+
+    def test_app_id_is_fixed(self):
+        assert self._directive("AppId") == "{{32085ADC-A6C1-4CF4-A9CE-7DAD72791E68}"
+
+    def test_detects_running_app_by_the_same_mutex_name(self):
+        assert self._directive("AppMutex") == APP_MUTEX_NAME
+        assert self._directive("CloseApplications") == "no"
+
+    def test_identity_matches_the_spec(self):
+        assert self._directive("AppName") == "Klute Timer"
+        assert self._directive("AppPublisher") == "Ktulue"
+        assert self._directive("UninstallDisplayName") == "Klute Timer"
+
+    def test_version_comes_only_from_the_command_line(self):
+        iss = _read(*self.ISS)
+        assert self._directive("AppVersion") == "{#AppVersion}"
+        assert "#ifndef AppVersion" in iss
+        assert __version__ not in iss
+        assert not re.search(r"\d+\.\d+\.\d+", iss)
+
+    def test_upgrade_clears_old_bundled_libraries(self):
+        assert re.search(
+            r'^\[InstallDelete\]\s*^Type: filesandordirs; Name: "\{app\}\\_internal"',
+            _read(*self.ISS),
+            re.MULTILINE,
+        )
+
+    def test_uninstall_removes_the_whole_install_folder(self):
+        assert re.search(
+            r'^\[UninstallDelete\]\s*^Type: filesandordirs; Name: "\{app\}"',
+            _read(*self.ISS),
+            re.MULTILINE,
+        )
+
+    def test_data_prompt_defaults_to_keep_and_skips_silent_uninstall(self):
+        code = _read(*self.ISS).split("[Code]", 1)[1]
+        assert "UninstallSilent" in code
+        assert "MB_DEFBUTTON2" in code
+        assert r"{userappdata}\KluteTimer" in code
+        assert "DelTree" in code
+        assert "IDYES" in code
