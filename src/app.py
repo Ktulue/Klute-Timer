@@ -16,6 +16,8 @@ from src.file_writer import FileWriter
 from src.sound_player import SoundPlayer
 from src.ws_client import StreamerbotClient
 from src.logger import setup_logger, get_logger
+from src.single_instance import hold_app_mutex
+from src.version import __version__
 
 
 DATA_DIR = get_data_dir()
@@ -269,6 +271,9 @@ class Api:
 
             self._push_timer_update(timer_id)
 
+    def get_version(self) -> str:
+        return __version__
+
     def get_presets(self) -> list[dict]:
         return [p.to_dict() for p in self._config.presets]
 
@@ -398,6 +403,20 @@ class Api:
         return lines[-count:]
 
 
+def log_startup() -> None:
+    """Record which build is running, so every log says what produced it."""
+    log.info(
+        f"Klute Timer {__version__} starting",
+        extra={
+            "context": "startup",
+            "state": (
+                f"frozen={getattr(sys, 'frozen', False)} "
+                f"exe={sys.executable} data_dir={DATA_DIR}"
+            ),
+        },
+    )
+
+
 def start_backend(window: webview.Window, api: Api) -> None:
     api.set_window(window)
     if api._ws_client:
@@ -419,6 +438,8 @@ def create_tray_icon() -> Image.Image:
 
 def main() -> None:
     setup_logger(log_dir=os.path.join(DATA_DIR, "logs"))
+    log_startup()
+    hold_app_mutex()
 
     api = Api()
 

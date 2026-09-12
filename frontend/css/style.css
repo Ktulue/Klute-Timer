@@ -495,6 +495,15 @@ select {
     color: var(--text-secondary);
 }
 
+/* Which build is running: lets the user match the app to Installed apps. */
+.settings-version {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
 /* Whether the folder is the app default or one the user picked. Stated in
    words, not colour alone, so it reads the same to a colour-blind user. */
 .path-header {
