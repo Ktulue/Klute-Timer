@@ -56,6 +56,13 @@ DACL_SECURITY_INFORMATION = 0x00000004
 SDDL_REVISION_1 = 1
 GENERIC_ALL = 0x10000000
 
+# What ConvertSecurityDescriptorToStringSecurityDescriptorW actually returns
+# for a mutex handle created with GA (full access) in the SDDL we hand in:
+# MUTANT_ALL_ACCESS (STANDARD_RIGHTS_ALL | MUTANT_QUERY_STATE), not the
+# literal string "GA". Confirmed by round-tripping MUTEX_DACL_SDDL through
+# hold_app_mutex() and reading the DACL back.
+MUTEX_FULL_ACCESS = 0x1F0001
+
 _advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
 _get_security_info = _advapi32.GetSecurityInfo
 _get_security_info.argtypes = [
@@ -124,7 +131,15 @@ def test_everyone_can_wait_on_the_mutex_so_an_unelevated_installer_sees_an_eleva
 
     sddl = _dacl_sddl(handle)
 
-    assert any(mask & SYNCHRONIZE for mask in _rights_granted_to(sddl, "WD")), sddl
+    everyone_rights = _rights_granted_to(sddl, "WD")
+    assert everyone_rights, sddl
+    # Everyone gets exactly SYNCHRONIZE -- enough to detect the mutex, nothing broader.
+    assert everyone_rights == [SYNCHRONIZE], sddl
+
+    # SYSTEM and Administrators keep full access to the mutex.
+    for trustee in ("SY", "BA"):
+        rights = _rights_granted_to(sddl, trustee)
+        assert rights == [MUTEX_FULL_ACCESS], (trustee, sddl)
 
 
 def test_descriptor_build_failure_still_creates_the_mutex(monkeypatch):

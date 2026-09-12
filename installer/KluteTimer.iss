@@ -54,7 +54,7 @@ Type: filesandordirs; Name: "{app}\_internal"; Check: IsDefaultInstallDir
 
 [Files]
 ; A pre-%APPDATA% build could leave user data in dist\KluteTimer; never ship it.
-Source: "..\dist\KluteTimer\*"; DestDir: "{app}"; Excludes: "config.json,logs\*,output\*"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\KluteTimer\*"; DestDir: "{app}"; Excludes: "\config.json,\logs\*,\output\*"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Shortcuts:"

@@ -130,7 +130,7 @@ class TestInstallerScript:
     def test_files_never_package_user_data_left_in_the_build_folder(self):
         entries = _entries(_section(_read(*self.ISS), "Files"))
         assert len(entries) == 1
-        assert 'Excludes: "config.json,logs\\*,output\\*"' in entries[0]
+        assert 'Excludes: "\\config.json,\\logs\\*,\\output\\*"' in entries[0]
 
     def test_refuses_to_compile_with_inno_older_than_six_seven(self):
         iss = _read(*self.ISS)
