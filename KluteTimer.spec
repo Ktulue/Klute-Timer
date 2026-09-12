@@ -2,12 +2,12 @@
 """PyInstaller build recipe for Klute Timer.
 
 Build with:  pyinstaller KluteTimer.spec --noconfirm
-(or just run build.bat, which also stages config.json/output next to the exe).
+(or just run build.bat, which also rescues settings from a pre-%APPDATA% install).
 
-One-folder build -> dist/KluteTimer/KluteTimer.exe (+ _internal/). The frontend
-UI is bundled read-only inside the app; config.json, output/, logs/ and sounds/
-are resolved next to the exe at runtime so the user can edit presets and OBS can
-read the output files.
+One-folder build -> dist/KluteTimer/KluteTimer.exe (+ _internal/). Everything in
+that folder is disposable: the frontend UI is bundled read-only inside the app,
+and config.json, logs/ and the default output/ live in %APPDATA%/KluteTimer so a
+rebuild cannot delete the folder OBS is reading from.
 """
 from PyInstaller.utils.hooks import collect_all
 

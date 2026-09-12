@@ -10,6 +10,7 @@ import pystray
 from PIL import Image, ImageDraw
 
 from src.config import Config, filename_only
+from src.paths import get_data_dir, get_legacy_dir, migrate_legacy_config, resource_path
 from src.timer import Timer
 from src.file_writer import FileWriter
 from src.sound_player import SoundPlayer
@@ -17,38 +18,22 @@ from src.ws_client import StreamerbotClient
 from src.logger import setup_logger, get_logger
 
 
-def get_base_dir() -> str:
-    """Directory for user-writable files (config.json, output/, logs/, sounds/).
-
-    In a frozen PyInstaller build these live next to the executable so the
-    user can still edit presets and OBS can read the output files.
-    """
-    if getattr(sys, "frozen", False):
-        return os.path.dirname(sys.executable)
-    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-
-def resource_path(*parts: str) -> str:
-    """Path to a read-only bundled asset (e.g. the frontend/ UI).
-
-    PyInstaller unpacks bundled data to sys._MEIPASS at runtime; in a normal
-    source checkout the assets live under the project root instead.
-    """
-    if getattr(sys, "frozen", False):
-        base = getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
-    else:
-        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base, *parts)
-
-
-BASE_DIR = get_base_dir()
+DATA_DIR = get_data_dir()
 log = get_logger("app")
 
 
 class Api:
     def __init__(self):
         self._window: Optional[webview.Window] = None
-        self._config = Config(os.path.join(BASE_DIR, "config.json"))
+        # An install from before user data moved out of the app folder still has
+        # its presets and chosen output folder beside the exe. Adopt them once,
+        # before Config would otherwise write a fresh default over the top.
+        if migrate_legacy_config(DATA_DIR, get_legacy_dir()):
+            log.info(
+                f"adopted existing config from {get_legacy_dir()}",
+                extra={"context": "migrate", "state": f"data_dir={DATA_DIR}"},
+            )
+        self._config = Config(os.path.join(DATA_DIR, "config.json"))
         self._file_writer = FileWriter()
         self._sound_player = SoundPlayer()
         self._timers: list[Timer] = []
@@ -64,7 +49,7 @@ class Api:
     def _resolve_output_dir(self) -> str:
         """The directory timer files are actually written to.
 
-        Falls back to <BASE_DIR>/output when the configured directory can't be
+        Falls back to <DATA_DIR>/output when the configured directory can't be
         used — an unplugged drive or a revoked permission must not take the app
         down mid-stream. The fallback is deliberately not written back to the
         config: the stored path is the user's intent, and it may well be valid
@@ -79,7 +64,7 @@ class Api:
         except OSError as e:
             reason = str(e)
 
-        fallback = os.path.join(BASE_DIR, "output")
+        fallback = os.path.join(DATA_DIR, "output")
         log.warning(
             f"configured output folder unusable ({reason}); using {fallback}",
             extra={"context": "resolve_output_dir", "state": f"configured={configured}"},
@@ -298,7 +283,10 @@ class Api:
             "output_dir": output_dir,
             "configured_output_dir": self._config.output_dir,
             "using_fallback": output_dir != self._config.output_dir,
-            "log_dir": os.path.join(BASE_DIR, "logs"),
+            "is_default_output_dir": (
+                self._config.output_dir == self._config.default_output_dir
+            ),
+            "log_dir": os.path.join(DATA_DIR, "logs"),
             "files": [
                 {
                     "name": preset.name,
@@ -360,11 +348,27 @@ class Api:
         )
         return self.get_paths()
 
+    def reset_output_dir(self) -> dict:
+        """Send the timer files back to the default folder in the data directory.
+
+        Same relocation as picking a folder, so the old files are left where
+        they are rather than moved out from under OBS.
+        """
+        self._config.output_dir = self._config.default_output_dir
+        self._config.save()
+        self._register_all_outputs()
+
+        log.info(
+            f"output folder reset to {self._config.output_dir}",
+            extra={"context": "reset_output_dir", "state": "success"},
+        )
+        return self.get_paths()
+
     def open_output_dir(self) -> bool:
         return self._open_folder(self._resolve_output_dir())
 
     def open_log_dir(self) -> bool:
-        return self._open_folder(os.path.join(BASE_DIR, "logs"))
+        return self._open_folder(os.path.join(DATA_DIR, "logs"))
 
     def _open_folder(self, path: str) -> bool:
         try:
@@ -379,7 +383,7 @@ class Api:
             return False
 
     def get_logs(self, severity: str = "INFO", count: int = 50) -> list[str]:
-        log_path = os.path.join(BASE_DIR, "logs", "klute-timer.log")
+        log_path = os.path.join(DATA_DIR, "logs", "klute-timer.log")
         if not os.path.exists(log_path):
             return []
         with open(log_path, "r", encoding="utf-8") as f:
@@ -414,7 +418,7 @@ def create_tray_icon() -> Image.Image:
 
 
 def main() -> None:
-    setup_logger(log_dir=os.path.join(BASE_DIR, "logs"))
+    setup_logger(log_dir=os.path.join(DATA_DIR, "logs"))
 
     api = Api()
 

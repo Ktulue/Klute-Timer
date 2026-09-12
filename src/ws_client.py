@@ -1,8 +1,9 @@
 import asyncio
 import json
+import time
 import uuid
 import threading
-from typing import Optional, Callable
+from typing import Callable, Optional, Tuple
 
 from src.logger import get_logger
 
@@ -10,6 +11,71 @@ log = get_logger("ws_client")
 
 VALID_COMMANDS = {"start", "pause", "stop"}
 NOTIFY_THRESHOLD = 5
+HEARTBEAT_SECONDS = 15 * 60
+BACKOFF_MAX_SECONDS = 30
+# 2 ** 5 already exceeds the cap, so a longer outage gains nothing by raising
+# the exponent. Clamping it here keeps a five-figure failure count from building
+# a five-figure-bit integer on every single retry just to discard it.
+BACKOFF_MAX_EXPONENT = 5
+
+Report = Optional[Tuple[str, str]]
+
+
+def backoff_delay(failure_count: int) -> int:
+    """Seconds to wait before retry number `failure_count`."""
+    exponent = min(max(failure_count - 1, 0), BACKOFF_MAX_EXPONENT)
+    return min(2 ** exponent, BACKOFF_MAX_SECONDS)
+
+
+class ReconnectLog:
+    """Decides what a connection failure is worth logging.
+
+    A closed Streamer.bot is a normal state, not an error, and it can persist
+    for days. Logging every retry produced thousands of ERROR lines that buried
+    the warnings that actually matter, such as an unusable output folder.
+
+    What survives is the signal: the first failure of a streak, any change in
+    the error itself, a periodic heartbeat so a long outage is still visible,
+    and the recovery. Returns a (level, message) pair, or None to stay silent.
+    """
+
+    def __init__(
+        self,
+        heartbeat_seconds: int = HEARTBEAT_SECONDS,
+        clock: Callable[[], float] = time.monotonic,
+    ):
+        self._heartbeat_seconds = heartbeat_seconds
+        self._clock = clock
+        self._error: Optional[str] = None
+        self._streak_start: Optional[float] = None
+        self._last_report = 0.0
+
+    def failure(self, error: str, attempts: int) -> Report:
+        now = self._clock()
+        if self._streak_start is None:
+            self._streak_start = now
+
+        # A changed error is new information: refused means Streamer.bot is
+        # closed, unreachable means something else entirely.
+        if error != self._error:
+            self._error = error
+            self._last_report = now
+            return ("warning", f"Streamer.bot not reachable: {error}")
+
+        if now - self._last_report >= self._heartbeat_seconds:
+            self._last_report = now
+            return ("info", f"still disconnected after {attempts} attempts: {error}")
+
+        return None
+
+    def success(self, attempts: int) -> Report:
+        if self._streak_start is None:
+            return None
+
+        downtime = int(self._clock() - self._streak_start)
+        self._streak_start = None
+        self._error = None
+        return ("info", f"reconnected after {attempts} attempts, down for {downtime}s")
 
 
 class StreamerbotClient:
@@ -29,6 +95,7 @@ class StreamerbotClient:
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._thread: Optional[threading.Thread] = None
         self._running = False
+        self._reconnect_log = ReconnectLog()
 
     @property
     def failure_count(self) -> int:
@@ -123,6 +190,9 @@ class StreamerbotClient:
 
                 async with websockets.connect(self.uri) as ws:
                     self._ws = ws
+                    # Read before the reset, so the recovery line can say how
+                    # many attempts it took to get back.
+                    attempts = self._failure_count
                     self.record_success()
 
                     if self._on_status_change:
@@ -131,6 +201,9 @@ class StreamerbotClient:
                     log.info(
                         f"connected to {self.uri}",
                         extra={"context": "connect", "state": "connected"},
+                    )
+                    self._report(
+                        self._reconnect_log.success(attempts), "connect", attempts
                     )
 
                     # Wait for Hello, then subscribe
@@ -161,20 +234,27 @@ class StreamerbotClient:
                     status = "error" if self.should_notify() else "reconnecting"
                     self._on_status_change(status)
 
-                log.error(
-                    f"connection failed: {e}",
-                    extra={
-                        "context": "connect_loop",
-                        "state": f"failures={self._failure_count}",
-                    },
+                self._report(
+                    self._reconnect_log.failure(str(e), self._failure_count),
+                    "connect_loop",
+                    self._failure_count,
                 )
 
                 if not self._running:
                     return
 
                 # Exponential backoff: 1s, 2s, 4s, 8s, max 30s
-                delay = min(2 ** (self._failure_count - 1), 30)
-                await asyncio.sleep(delay)
+                await asyncio.sleep(backoff_delay(self._failure_count))
+
+    def _report(self, report: Report, context: str, attempts: int) -> None:
+        """Emit what ReconnectLog decided was worth saying, if anything."""
+        if not report:
+            return
+        level, message = report
+        getattr(log, level)(
+            message,
+            extra={"context": context, "state": f"failures={attempts}"},
+        )
 
     async def send_do_action(self, action_name: str) -> None:
         if self._ws:

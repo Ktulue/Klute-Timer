@@ -2,7 +2,11 @@
 
 let timers = [];
 let presets = [];
-let paths = { output_dir: '', log_dir: '', files: [], using_fallback: false };
+let paths = {
+    output_dir: '', log_dir: '', files: [],
+    using_fallback: false, is_default_output_dir: true,
+};
+let pendingRelocation = 'change';
 
 // --- Initialization ---
 
@@ -154,18 +158,25 @@ function setupEventListeners() {
         pywebview.api.open_log_dir();
     });
 
-    // Changing the output folder is confirmed inline rather than with a native
-    // confirm(), which is unreliable across pywebview backends.
+    document.getElementById('btn-copy-output').addEventListener('click', copyOutputPath);
+
+    // Both relocations are confirmed inline rather than with a native confirm(),
+    // which is unreliable across pywebview backends. Either one leaves OBS
+    // reading the old folder, so both get the same warning.
     document.getElementById('btn-change-output').addEventListener('click', () => {
-        document.getElementById('change-confirm').style.display = 'block';
-        document.getElementById('btn-confirm-change').focus();
+        askToRelocate('change');
+    });
+    document.getElementById('btn-reset-output').addEventListener('click', () => {
+        askToRelocate('reset');
     });
     document.getElementById('btn-cancel-change').addEventListener('click', () => {
         document.getElementById('change-confirm').style.display = 'none';
     });
     document.getElementById('btn-confirm-change').addEventListener('click', async () => {
         document.getElementById('change-confirm').style.display = 'none';
-        const result = await pywebview.api.pick_output_dir();
+        const result = pendingRelocation === 'reset'
+            ? await pywebview.api.reset_output_dir()
+            : await pywebview.api.pick_output_dir();
         if (result) {
             paths = result;
             renderPaths();
@@ -189,11 +200,64 @@ async function refreshPaths() {
     renderPaths();
 }
 
+function askToRelocate(action) {
+    pendingRelocation = action;
+    document.getElementById('change-confirm-text').textContent = action === 'reset'
+        ? 'The four timer files will be recreated in the default folder. Your OBS text '
+          + 'sources will keep reading the current location until you re-point them.'
+        : 'The four timer files will be created in the folder you choose. Your OBS text '
+          + 'sources will keep reading the old location until you re-point them.';
+    document.getElementById('btn-confirm-change').textContent = action === 'reset'
+        ? 'Reset to Default'
+        : 'Choose Folder...';
+    document.getElementById('change-confirm').style.display = 'block';
+    document.getElementById('btn-confirm-change').focus();
+}
+
+// The embedded browser does not reliably grant clipboard access, so fall back
+// to a hidden textarea rather than leaving the button silently dead.
+async function copyOutputPath() {
+    const button = document.getElementById('btn-copy-output');
+    let copied = false;
+    try {
+        await navigator.clipboard.writeText(paths.output_dir);
+        copied = true;
+    } catch (e) {
+        const scratch = document.createElement('textarea');
+        scratch.value = paths.output_dir;
+        scratch.setAttribute('readonly', '');
+        scratch.style.position = 'fixed';
+        scratch.style.opacity = '0';
+        document.body.appendChild(scratch);
+        scratch.select();
+        try {
+            copied = document.execCommand('copy');
+        } catch (e2) {
+            copied = false;
+        }
+        document.body.removeChild(scratch);
+    }
+
+    button.textContent = copied ? 'Copied' : 'Press Ctrl+C';
+    if (!copied) {
+        // Nothing worked, so at least select the path for them.
+        window.getSelection().selectAllChildren(document.getElementById('settings-output-dir'));
+    }
+    setTimeout(() => { button.textContent = 'Copy Path'; }, 1500);
+}
+
 function renderPaths() {
     document.getElementById('footer-output-text').textContent = shortenPath(paths.output_dir);
     document.getElementById('btn-footer-output').title = `Timer output folder: ${paths.output_dir}`;
 
     document.getElementById('settings-output-dir').textContent = paths.output_dir;
+
+    const badge = document.getElementById('output-dir-badge');
+    badge.textContent = paths.is_default_output_dir ? 'Default location' : 'Custom location';
+    badge.classList.toggle('custom', !paths.is_default_output_dir);
+    // Resetting a folder that is already the default would do nothing, so the
+    // button says so by being unavailable rather than by quietly no-opping.
+    document.getElementById('btn-reset-output').disabled = paths.is_default_output_dir;
     document.getElementById('settings-log-dir').textContent = paths.log_dir;
 
     const warning = document.getElementById('output-fallback-warning');
